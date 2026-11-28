@@ -85,6 +85,7 @@ fn member(entity: &Entity) -> Value {
         Kind::Text(text) => out["text"] = json!(text.text),
         Kind::Shape(shape) => out["text"] = json!(shape.text),
         Kind::File(file) => out["filePath"] = json!(file.file),
+        Kind::Mod(item) => out["mod"] = json!(item.name),
         Kind::Group(_) | Kind::Drawing(_) => {}
     }
     out

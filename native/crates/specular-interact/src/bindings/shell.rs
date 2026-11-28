@@ -23,26 +23,12 @@ pub enum ShellCommand {
     HideOthers,
     /// Minimizes the window.
     Minimize,
+    /// Closes the window, as its close button does.
+    Close,
+    /// Zooms the window, as its zoom button does.
+    Zoom,
     /// Opens the command palette.
     CommandPalette,
-}
-
-impl ShellCommand {
-    /// The command's name in the command palette. The palette itself has no
-    /// entry: it is already open when a command is picked.
-    pub(crate) const fn label(self) -> &'static str {
-        match self {
-            Self::Quit => "Quit",
-            Self::OpenSpace => "Open space",
-            Self::OpenCanvas => "Open",
-            Self::Save => "Save",
-            Self::Settings => "Settings",
-            Self::Hide => "Hide",
-            Self::HideOthers => "Hide others",
-            Self::Minimize => "Minimize",
-            Self::CommandPalette => "Command palette",
-        }
-    }
 }
 
 /// The window's own keys. They fire wherever the keys are, an entered page

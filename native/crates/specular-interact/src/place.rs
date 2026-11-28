@@ -69,7 +69,7 @@ const fn placing(tool: Tool) -> Option<Placing> {
         Tool::AddSticky => Some(Placing::Text(TextStyle::Sticky)),
         Tool::AddShape => Some(Placing::Shape),
         Tool::AddDocument => Some(Placing::Document),
-        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect => None,
+        Tool::Select | Tool::Draw | Tool::Comment | Tool::Inspect | Tool::Mod(_) => None,
     }
 }
 
@@ -134,6 +134,7 @@ impl App {
                 | Gesture::TextSelect(_)
                 | Gesture::EdgeDrag(_)
                 | Gesture::Line(_)
+                | Gesture::ModTool
                 | Gesture::Draw(_),
             ) => return None,
         };
@@ -257,7 +258,7 @@ fn at_default_size(app: &mut App, drag: &PlaceDrag) -> Entity {
 }
 
 /// What `what` is at its default size with its top-left at `at`.
-fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) -> Entity {
+pub(crate) fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) -> Entity {
     match what {
         // A Document is placed by the shell's answer, not from here.
         Placing::Page | Placing::Document => page(app, id, at),
@@ -273,7 +274,8 @@ fn default_entity(app: &App, what: Placing, id: EntityId, at: DVec2) -> Entity {
                 | ShapeKind::Hexagon
                 | ShapeKind::Parallelogram
                 | ShapeKind::Chevron
-                | ShapeKind::Cylinder => DEFAULT_SHAPE_SIZE,
+                | ShapeKind::Cylinder
+                | ShapeKind::Custom => DEFAULT_SHAPE_SIZE,
             };
             shape(app, id, geometry::rect(at, size))
         }
@@ -286,6 +288,7 @@ fn shape(app: &App, id: EntityId, rect: Rect) -> Entity {
         color: Some(defaults.color.clone()),
         stroke_width: Some(defaults.stroke_width),
         text_size: Some(defaults.text_size),
+        custom: defaults.custom.clone(),
         ..Shape::new(defaults.kind)
     };
     Entity::new(id, rect, Kind::Shape(shape))

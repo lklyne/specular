@@ -50,7 +50,7 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, shape: &Shape, scene: &mu
         })),
     };
 
-    let silhouette = shape_path::silhouette(shape.shape, rect);
+    let silhouette = shape_path::silhouette(shape, rect);
     scene.push(Item::canvas(body(silhouette, rect, fill, stroke)));
     if let Some(commands) = shape_path::overlay(shape.shape, rect) {
         // With no border the rim is a hairline in the fill's colour.

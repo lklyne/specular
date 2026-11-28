@@ -72,6 +72,11 @@ undo-to-start
   the right panel or outside the window. A drag under way may go anywhere.
 - Name controls with `control text.color`, never by where they are drawn.
   Sidebar canvas rows are named by place: `sidebar.canvas.1`.
+- Run a command of the registry by its name, with its JSON arguments on
+  the rest of the line: `run edit.undo`, `run tool.set {"tool":"draw"}`,
+  `run tab.show {"item":"p1"}`. `specular commands` (or
+  `specular_interact::commands()`) lists them. A command with nothing to
+  act on fails the run; `expect command page.reload disabled` says so.
 - Check state with `expect` lines, not pictures. `state out.txt` writes
   every fact a run can check, each line an `expect` without the word, so
   the way to write one is to run a `state`, read it and paste.
@@ -127,12 +132,12 @@ expect sent viewport p 500 300      expect sent no save | sent nothing
 
 With them come the steps `page-says p1 scrolled 0 40` (or `url`, `fit`,
 `element`, `composition`), `appearance dark`, `theme-loaded light`,
-`repeat down`, `menu Edit > Undo`, and `act show:p1`. A headless run
+`repeat down` and `menu Edit > Undo`. A headless run
 does `drop` too, a relative path read from the canvas's folder.
 
 The panel facts read a topic's lines, the ones a `state` step writes as
 `TOPIC has LINE`: `chat`, `comments`, `controls`, `editor`, `effects`,
-`inspect`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
+`inspect`, `layout`, `menubar`, `onboarding`, `pages`, `palette`, `pointer`,
 `repos`, `settings`, `sidebar` and `tabs` (see
 `crates/specular-shell/src/script/facts_panels.rs`):
 
@@ -141,6 +146,7 @@ expect chat has bubble agent "Made it blue."   expect comments has mark a pill 4
 expect controls is page.back disabled "Back"   expect editor is caret 5 0
 expect effects has run-agent cwd /scratch/site expect comments count 10 mark\s
 expect chat lacks queued                       expect tabs has lens device
+expect layout is region toolbar hidden         expect layout is insets 36 38 0 0
 ```
 
 `has` and `lacks` look for the text in any line, `is` for a whole line,
@@ -218,6 +224,7 @@ uses `\n`, `\t` and `\s` (a space at either end).
 | `page-scroll` | Comments and a hooked shape on a scrolled page: stored in its document, seen and pressed where the scroll puts them. |
 | `sync-sets` | The chain button's merge, copies and their sets, and the entered page's scroll moving its set. |
 | `tabs` | Tabs opened, ordered, closed, a new tab, Command-L, next and previous, a press that lays a page out. |
+| `regions` | The window's regions hidden and shown by `ui.toggle`, `ui.show` and `ui.hide`, the canvas taking their room, and the reset key. |
 | `lens` | A page's tab in Fill and Device, the eye, what is made beside it, a desktop browser in Fill. |
 | `item-view` | Input in an item view: the shown page entered, hidden things untouchable, a Document as a reading column; view verbs. |
 | `page-properties` | Size presets, turns, custom sizes, frames, the device colour and the colour scheme, from the popup and the keys. |

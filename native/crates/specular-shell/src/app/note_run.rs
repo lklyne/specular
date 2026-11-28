@@ -4,7 +4,8 @@
 use std::path::PathBuf;
 
 use specular_doc::Rect;
-use specular_interact::{Action, Event, NoteNotice};
+use specular_interact::{Action, Event, NoteLayout, NoteNotice, TickBox};
+use specular_scene::ColumnMeasure;
 
 use super::runtime::{Runtime, ShellWindow};
 use crate::notes::{NoteLoader, NoteOutcome, ReadFailure};
@@ -75,21 +76,25 @@ impl<W: ShellWindow> Runtime<W> {
         }
     }
 
-    /// Tells the app how tall the rows of each Document on screen came out,
-    /// when that has changed since it was last told.
-    pub(super) fn report_note_heights(&mut self) {
+    /// Tells the app how tall the rows of each Document on screen came out
+    /// and where their tick boxes are, when that has changed since it was
+    /// last told.
+    pub(super) fn report_note_layouts(&mut self) {
         let Some(gpu) = self.gpu.as_ref() else {
             return;
         };
-        let changed: Vec<_> = (gpu.compositor().column_heights().iter())
-            .filter(|(entity, height)| self.note_heights.get(entity) != Some(height))
+        let changed: Vec<_> = (gpu.compositor().column_measures().iter())
+            .filter(|(entity, measure)| self.note_layouts.get(entity) != Some(measure))
             .cloned()
             .collect();
         if changed.is_empty() {
             return;
         }
-        self.note_heights.extend(changed.iter().cloned());
-        self.dispatch(Event::NoteHeights(changed));
+        self.note_layouts.extend(changed.iter().cloned());
+        let layouts = (changed.into_iter())
+            .map(|(entity, measure)| (entity, note_layout(measure)))
+            .collect();
+        self.dispatch(Event::NoteLayouts(layouts));
     }
 
     /// Tells the app about every file the note thread has read since the
@@ -116,5 +121,22 @@ impl<W: ShellWindow> Runtime<W> {
                 NoteOutcome::Created { file, rect } => Event::NoteCreated { file, rect },
             });
         }
+    }
+}
+
+/// What the renderer measured of a Document, in the app's terms.
+fn note_layout(measure: ColumnMeasure) -> NoteLayout {
+    let ticks = (measure.targets.into_iter())
+        .map(|(task, rect)| TickBox {
+            task,
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+        })
+        .collect();
+    NoteLayout {
+        height: measure.height,
+        ticks,
     }
 }

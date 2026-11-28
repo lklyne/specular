@@ -11,21 +11,25 @@
 //! The menu is fixed to a screen point, not to the item it is about. While
 //! it is open a layer over the window takes the pointer, the wheel and a
 //! pinch, as a macOS context menu does, so the canvas cannot move under it.
+//!
+//! When the layout fills the `menu` overlay with a mod, the mod is drawn at
+//! the same point over the same layer, and a press on the layer closes the
+//! menu. The keys stay with the canvas, whose Escape closes it.
 
 use glam::Vec2;
 use gpui_kit::base::POPUP_PRIORITY;
 use gpui_kit::component::menu::PopupMenu;
 use gpui_kit::{
     AnyElement, App, Context, DismissEvent, Entity, FocusHandle, Focusable as _,
-    InteractiveElement as _, IntoElement as _, ParentElement as _, Styled as _, Subscription,
-    Window, anchored, deferred, div, point, px,
+    InteractiveElement as _, IntoElement as _, MouseButton, ParentElement as _, Styled as _,
+    Subscription, Window, anchored, deferred, div, point, px,
 };
 use specular_interact::panel::ContextMenu;
-use specular_interact::{ControlsModel, Event};
+use specular_interact::{ControlsModel, Event, Overlay};
 
 use super::menu::{self, Pick};
 use super::{ShellView, focus_canvas};
-use crate::canvas;
+use crate::canvas::{self, Models};
 
 /// The open menu as drawn: what the app said and the Kit menu showing it.
 pub(super) struct CanvasMenu {
@@ -82,7 +86,7 @@ fn layer(menu: Entity<PopupMenu>, corner: Vec2, window: &Window) -> AnyElement {
                     anchored()
                         .position(point(px(corner.x), px(corner.y)))
                         .snap_to_window_with_margin(px(8.0))
-                        .child(menu),
+                        .child(edged(menu)),
                 ),
         ),
     )
@@ -90,13 +94,86 @@ fn layer(menu: Entity<PopupMenu>, corner: Vec2, window: &Window) -> AnyElement {
     .into_any_element()
 }
 
+/// The Kit's menu inside the `popupBorder` line every list that opens has,
+/// over the faint ring the Kit draws, one point out with the corner one
+/// point wider.
+fn edged(menu: Entity<PopupMenu>) -> AnyElement {
+    div()
+        .border(crate::theme::line())
+        .border_color(crate::theme::solid(crate::theme::chrome_border()))
+        .rounded(px(crate::look::radius() + 1.0))
+        .child(menu)
+        .into_any_element()
+}
+
+/// A menu mod with its corner at `corner`, over a layer a press on which
+/// closes the menu. A press on the mod is the mod's.
+fn mod_layer(menu: AnyElement, corner: Vec2, window: &Window) -> AnyElement {
+    let viewport = window.viewport_size();
+    let close = |_: &gpui_kit::MouseDownEvent, _: &mut Window, _: &mut App| {
+        canvas::dispatch(Event::MenuClosed);
+    };
+    deferred(
+        anchored().child(
+            div()
+                .id("canvas-menu-layer")
+                .occlude()
+                .w(viewport.width)
+                .h(viewport.height)
+                .on_scroll(|_, _, cx| cx.stop_propagation())
+                .on_mouse_down(MouseButton::Left, close)
+                .on_mouse_down(MouseButton::Right, close)
+                .child(
+                    anchored()
+                        .position(point(px(corner.x), px(corner.y)))
+                        .snap_to_window_with_margin(px(8.0))
+                        .child(
+                            div()
+                                .id("canvas-menu-mod")
+                                .occlude()
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                .on_mouse_down(MouseButton::Right, |_, _, cx| {
+                                    cx.stop_propagation();
+                                })
+                                .child(menu),
+                        ),
+                ),
+        ),
+    )
+    .with_priority(POPUP_PRIORITY)
+    .into_any_element()
+}
+
+/// Where the canvas slot's corner is in the window, which the menu's point
+/// is measured from.
+fn slot_origin() -> Vec2 {
+    canvas::with(|canvas| (canvas.runtime.window()).map(crate::surface::CanvasSurface::slot_origin))
+        .flatten()
+        .unwrap_or_default()
+}
+
 impl ShellView {
-    /// The open context menu over the window, or nothing while none is open.
+    /// The open context menu over the window, or nothing while none is open:
+    /// the menu mod the layout names, else the Kit's own menu.
     pub(super) fn canvas_menu(
         &mut self,
+        models: Option<&Models>,
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> Option<AnyElement> {
+        let scripted = match models {
+            Some(models) if models.shows(Overlay::Menu) => {
+                self.mods.overlay(Overlay::Menu, &models.layout, cx)
+            }
+            _ => None,
+        };
+        if let Some(menu) = scripted {
+            if self.menu.take().is_some() {
+                focus_canvas(window, cx);
+            }
+            let (open, _) = canvas::open_menu()?;
+            return Some(mod_layer(menu, slot_origin() + open.at, window));
+        }
         let Some((open, model)) = canvas::open_menu() else {
             // The app closed it: an item was pressed by name, or what it
             // was about changed.
@@ -127,12 +204,11 @@ impl ShellView {
             });
         }
         let held = self.menu.as_ref()?;
-        let origin = canvas::with(|canvas| {
-            (canvas.runtime.window()).map(crate::surface::CanvasSurface::slot_origin)
-        })
-        .flatten()
-        .unwrap_or_default();
-        Some(layer(held.view.clone(), origin + held.open.at, window))
+        Some(layer(
+            held.view.clone(),
+            slot_origin() + held.open.at,
+            window,
+        ))
     }
 }
 

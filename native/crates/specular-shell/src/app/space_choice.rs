@@ -28,6 +28,8 @@ pub enum FolderAsk {
         /// The origin the repo is bound to, if one is named.
         origin: Option<String>,
     },
+    /// A folder to open as a project beside the ones open (ADR 0062).
+    Project,
 }
 
 impl FolderAsk {
@@ -37,6 +39,7 @@ impl FolderAsk {
             Self::Space { create: true } => "Create space",
             Self::Space { create: false } => "Open space",
             Self::Repo { .. } => "Choose repo folder",
+            Self::Project => "Open project",
         }
     }
 
@@ -45,6 +48,7 @@ impl FolderAsk {
         match self {
             Self::Space { .. } => "SPECULAR_SPACE_PICK",
             Self::Repo { .. } => "SPECULAR_REPO_PICK",
+            Self::Project => "SPECULAR_PROJECT_PICK",
         }
     }
 }
@@ -71,6 +75,7 @@ impl<W: ShellWindow> Runtime<W> {
     pub fn folder_chosen(&mut self, ask: FolderAsk, folder: &Path) {
         match ask {
             FolderAsk::Space { .. } => self.choose_space(folder),
+            FolderAsk::Project => self.open_project(folder),
             FolderAsk::Repo { origin } => {
                 let path = folder.to_string_lossy().into_owned();
                 let action = match origin {
@@ -94,16 +99,27 @@ impl<W: ShellWindow> Runtime<W> {
 
     /// Shows the open space's folder in the file manager.
     pub(super) fn reveal_space(&self) {
-        let Some(folder) = self.space.as_deref() else {
-            return;
-        };
-        let opener = if cfg!(target_os = "macos") {
-            "open"
-        } else {
-            "xdg-open"
-        };
-        if let Err(error) = std::process::Command::new(opener).arg(folder).spawn() {
-            tracing::warn!(folder = %folder.display(), "the space folder was not shown: {error}");
+        if let Some(folder) = self.space.as_deref() {
+            reveal(folder);
         }
+    }
+
+    /// Shows a project's folder in the file manager.
+    pub(super) fn reveal_project(&self, id: &specular_interact::ProjectId) {
+        if let Some(project) = self.app.space().project(id) {
+            reveal(Path::new(&project.folder));
+        }
+    }
+}
+
+/// Opens `folder` in the file manager.
+fn reveal(folder: &Path) {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    if let Err(error) = std::process::Command::new(opener).arg(folder).spawn() {
+        tracing::warn!(folder = %folder.display(), "the folder was not shown: {error}");
     }
 }

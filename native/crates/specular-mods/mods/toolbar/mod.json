@@ -1,0 +1,8 @@
+{
+  "api": "1.2",
+  "title": "Toolbar",
+  "place": "toolbar",
+  "palette": [
+    { "title": "Toggle the toolbar", "run": "ui.toggle", "args": { "id": "toolbar" } }
+  ]
+}

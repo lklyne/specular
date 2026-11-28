@@ -6,10 +6,10 @@
 //! [`BINDINGS`], so the table cannot name a key the keyboard does not have.
 
 use std::borrow::Cow;
+use std::collections::BTreeSet;
 
 use crate::first_run::SpaceAction;
 use crate::menu::{MenuEntry, menus};
-use crate::repos::{ReposPane, repos_pane};
 use crate::{Action, App, BINDINGS, Context, Effect, Format, SidebarAction, ToolDefaultPatch};
 
 /// Where the tools' ribbon is.
@@ -22,6 +22,13 @@ pub enum ToolsPlace {
     FloatTop,
     /// Over the bottom of the canvas.
     FloatBottom,
+}
+
+/// A place is written by its name.
+impl serde::Serialize for ToolsPlace {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
 }
 
 impl ToolsPlace {
@@ -52,12 +59,8 @@ impl ToolsPlace {
     }
 }
 
-/// The width of the tools' ribbon while it is docked: a square button and
-/// the room either side of it.
-pub const TOOLS_DOCK_WIDTH: f32 = 36.0;
-
 /// What the app keeps between launches that is not in any canvas or tool.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AppSettings {
     /// Whether the left sidebar is shown when the app opens.
     pub show_sidebar: bool,
@@ -67,6 +70,24 @@ pub struct AppSettings {
     pub tools: ToolsPlace,
     /// Which cursors go undrawn.
     pub hidden_cursors: HiddenCursors,
+    /// The installed mods turned off, by folder name: they do not run, and
+    /// a layout that places one draws the app's own panel there.
+    pub mods_off: BTreeSet<String>,
+    /// The installed mods that start off (`starts_off` in `mod.json`) and
+    /// were turned on, by folder name.
+    pub mods_on: BTreeSet<String>,
+}
+
+impl AppSettings {
+    /// Whether `installed` runs: turned on, or not turned off when it
+    /// starts on.
+    pub fn mod_on(&self, installed: &crate::mods::InstalledMod) -> bool {
+        if installed.manifest.starts_off {
+            self.mods_on.contains(&installed.name)
+        } else {
+            !self.mods_off.contains(&installed.name)
+        }
+    }
 }
 
 /// The cursors the user has chosen not to see. Hiding one only stops
@@ -81,7 +102,7 @@ pub struct HiddenCursors {
 }
 
 /// A change to the [`AppSettings`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SettingAction {
     /// Show the left sidebar at launch, or do not.
     ShowSidebar(bool),
@@ -93,6 +114,8 @@ pub enum SettingAction {
     ShowAgentCursors(bool),
     /// Draw the synced cursor, or do not.
     ShowSyncedCursors(bool),
+    /// Turn the installed mod of this folder name on, or off.
+    Mod(String, bool),
 }
 
 /// One part the app is built from, for the About pane.
@@ -186,8 +209,8 @@ pub struct ShortcutRow {
 pub struct SettingsModel {
     /// The space folder and the launch defaults.
     pub general: GeneralPane,
-    /// The connected repos and the origins bound to them.
-    pub(crate) repos: ReposPane,
+    /// Every installed mod and its switch.
+    pub mods: Vec<crate::mods::ModRow>,
     /// Every key binding, in the table's order.
     pub shortcuts: Vec<ShortcutRow>,
     /// The app's version and those of what it is built from.
@@ -197,18 +220,7 @@ pub struct SettingsModel {
 impl App {
     /// What is kept between launches.
     pub fn settings(&self) -> AppSettings {
-        self.settings
-    }
-
-    /// How much of the canvas's left edge the docked ribbon takes, for a
-    /// shell that draws the chrome itself.
-    /// tools in a row of their own.
-    pub(crate) fn tools_dock_width(&self) -> f32 {
-        if self.session.panel.chrome_covers && self.settings.tools == ToolsPlace::Docked {
-            TOOLS_DOCK_WIDTH
-        } else {
-            0.0
-        }
+        self.settings.clone()
     }
 }
 
@@ -241,7 +253,7 @@ pub fn settings(app: &App) -> SettingsModel {
             },
             cursors,
         },
-        repos: repos_pane(app),
+        mods: crate::mods::mods_pane(app),
         shortcuts: shortcuts(app),
         about: app.about.clone(),
     }
@@ -357,28 +369,42 @@ fn unlisted(action: &Action) -> Cow<'static, str> {
 
 /// The settings a launch read from the preferences file: kept, and applied
 /// to what is shown.
-pub(crate) fn load(app: &mut App, settings: AppSettings) {
+pub(crate) fn load(app: &mut App, settings: AppSettings, effects: &mut Vec<Effect>) {
+    let (sidebar, chat) = (settings.show_sidebar, settings.show_chat);
     app.settings = settings;
-    if app.session.sidebar.shown() != settings.show_sidebar {
+    if app.session.sidebar.shown() != sidebar {
         app.session.sidebar.apply(SidebarAction::Toggle);
     }
-    if settings.show_chat {
+    if chat {
         app.session.chat.show();
     }
+    crate::mods::turn(app, effects);
 }
 
 /// Runs `action`. A setting is the default for the next launch: what is on
 /// screen now is left as the user has it.
 pub(crate) fn run(app: &mut App, action: SettingAction, effects: &mut Vec<Effect>) {
-    let before = app.settings;
+    let before = app.settings.clone();
     match action {
         SettingAction::ShowSidebar(on) => app.settings.show_sidebar = on,
         SettingAction::ShowChat(on) => app.settings.show_chat = on,
         SettingAction::Tools(place) => app.settings.tools = place,
         SettingAction::ShowAgentCursors(on) => app.settings.hidden_cursors.agent = !on,
         SettingAction::ShowSyncedCursors(on) => app.settings.hidden_cursors.synced = !on,
+        SettingAction::Mod(name, on) => {
+            if on {
+                app.settings.mods_off.remove(&name);
+                app.settings.mods_on.insert(name);
+            } else {
+                app.settings.mods_on.remove(&name);
+                app.settings.mods_off.insert(name);
+            }
+        }
+    }
+    if (&app.settings.mods_off, &app.settings.mods_on) != (&before.mods_off, &before.mods_on) {
+        crate::mods::turn(app, effects);
     }
     if app.settings != before {
-        effects.push(Effect::SaveSettings(app.settings));
+        effects.push(Effect::SaveSettings(app.settings.clone()));
     }
 }

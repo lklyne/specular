@@ -1,0 +1,16 @@
+{
+  "api": "1.6",
+  "title": "Watercolor",
+  "tools": [{
+    "name": "brush", "title": "Watercolor brush", "icon": "brush-highlighter",
+    "stroke": [
+      { "type": "path", "stroke": "#2f81f72e", "line": 28, "taper": true },
+      { "type": "path", "stroke": "#2f81f740", "line": 18, "taper": true, "speed": 0.5 },
+      { "type": "path", "stroke": "#2f81f755", "line": 8, "taper": true, "speed": 0.8 }
+    ]
+  }],
+  "items": {},
+  "commands": [
+    { "name": "color", "title": "Next watercolor", "icon": "brush-highlighter", "dock": true }
+  ]
+}

@@ -12,7 +12,7 @@ use gpui_kit::{
 };
 use specular_interact::{Chord, Control, DropdownOption, DropdownSection, Icon, OptionLayout};
 
-use super::super::controls::{CONTROL, element_id, face, in_list};
+use super::super::controls::{CONTROL, element_id, face_in, in_list};
 use super::super::glyphs::{glyph, ink};
 use super::super::named::mark;
 use super::super::{field, run};
@@ -58,7 +58,7 @@ fn row_fields(model: &DropdownOption, window: &mut Window, cx: &mut App) -> Opti
         .collect();
     Some(
         h_flex()
-            .gap_2()
+            .gap(crate::theme::space(2.0))
             .items_center()
             // A press in a field is typing, and not a choice of the row,
             // which would hand the keys back to the canvas.
@@ -99,13 +99,13 @@ fn option(
         .flex()
         .items_center()
         .justify_between()
-        .gap_4()
+        .gap(crate::theme::space(4.0))
         .h(px(height))
-        .when(wide, |this| this.w_full().px_2())
+        .when(wide, |this| this.w_full().px(crate::theme::space(2.0)))
         // Fields end a row as far from its edge as they are from its top.
         .when(fields.is_some(), |this| this.pr(px(FIELD_INSET)))
         .when(!wide, |this| this.w(px(32.0)).justify_center())
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .when(model.selected && !menu, |this| {
             this.bg(theme::solid(theme::control_on()))
         })
@@ -120,15 +120,29 @@ fn option(
                     }
                 })
         })
-        .child(face(&model.face, model.selected || menu))
+        .child(face_in(
+            &model.face,
+            model.selected || menu,
+            model.selected && !menu,
+            Some(element_id(&model.id)),
+        ))
         .child(mark(&model.id))
         .when(model.selected && menu, |this| {
             this.child(glyph(Icon::Check, ink(theme::text()), None, false, 12.0))
         })
         .when_some(trailing, |this, text| {
+            let group = element_id(&model.id);
+            let color = if model.selected && !menu {
+                theme::solid(theme::on_text())
+            } else {
+                theme::tinted(theme::text_muted())
+            };
             this.child(
                 div()
-                    .text_color(theme::tinted(theme::text_muted()))
+                    .text_color(color)
+                    .group_hover(group, |this| {
+                        this.text_color(theme::solid(theme::hover_text()))
+                    })
                     .child(text),
             )
         })
@@ -136,9 +150,9 @@ fn option(
         .when_some(keys, |this, keys| {
             this.child(
                 div()
-                    .px_1p5()
-                    .py_0p5()
-                    .rounded(px(4.0))
+                    .px(crate::theme::space(1.5))
+                    .py(crate::theme::space(0.5))
+                    .rounded(crate::theme::corner(4.0))
                     .bg(theme::solid(theme::control_on()))
                     .text_color(theme::solid(theme::key_text()))
                     .child(SharedString::from(keys)),
@@ -179,8 +193,8 @@ fn segmented(title: &'static str, options: &[DropdownOption]) -> AnyElement {
     h_flex()
         .w_full()
         .h(px(CONTROL))
-        .pl_2()
-        .gap_4()
+        .pl(crate::theme::space(2.0))
+        .gap(crate::theme::space(4.0))
         .items_center()
         .justify_between()
         .child(
@@ -205,7 +219,7 @@ fn section(
     match model {
         DropdownSection::Options { layout, options } => match layout {
             OptionLayout::List => v_flex()
-                .gap_0p5()
+                .gap(crate::theme::space(0.5))
                 .min_w(px(140.0))
                 .children(
                     (options.iter())
@@ -214,7 +228,7 @@ fn section(
                 )
                 .into_any_element(),
             OptionLayout::Row => h_flex()
-                .gap_0p5()
+                .gap(crate::theme::space(0.5))
                 .children(
                     (options.iter())
                         .map(|one| option(one, None, dismiss.clone(), window, cx))
@@ -241,7 +255,7 @@ fn section(
                 .map(|model| in_list(model, window, cx))
                 .collect();
             h_flex()
-                .gap_1()
+                .gap(crate::theme::space(1.0))
                 .items_center()
                 .children(controls)
                 .into_any_element()
@@ -281,14 +295,14 @@ pub(super) fn sections(
             let joined = (segmented(Some(one)) && segmented(next)) || opens_more(next);
             let ruled = next.is_some() && !joined;
             v_flex()
-                .gap_1()
+                .gap(crate::theme::space(1.0))
                 .child(section(one, rows, dismiss, window, cx))
                 .when(ruled, |this| this.child(Separator::horizontal()))
                 .into_any_element()
         })
         .collect();
     v_flex()
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .text_size(px(12.0))
         .children(blocks)
         .into_any_element()

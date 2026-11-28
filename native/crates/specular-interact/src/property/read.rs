@@ -69,7 +69,7 @@ pub(crate) fn color(app: &App) -> Option<Color> {
             Kind::Shape(shape) => out.extend(shape.color.clone()),
             Kind::Group(group) => out.extend(group.color.clone()),
             Kind::Drawing(drawing) => out.extend(drawing.strokes.iter().map(|s| s.color.clone())),
-            Kind::Page(_) | Kind::File(_) => {}
+            Kind::Page(_) | Kind::File(_) | Kind::Mod(_) => {}
         },
         |edge, out| out.extend(edge.color.clone()),
     ))
@@ -89,7 +89,7 @@ pub(crate) fn text_size(app: &App) -> Option<f64> {
     of_entities(app, |entity, out| match &entity.kind {
         Kind::Text(text) => out.push(text.size.unwrap_or(DEFAULT_TEXT_SIZE)),
         Kind::Shape(shape) => out.push(shape.text_size.unwrap_or(DEFAULT_TEXT_SIZE)),
-        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => {}
+        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Mod(_) => {}
     })
 }
 
@@ -120,6 +120,16 @@ pub(crate) fn shape_kind(app: &App) -> Option<ShapeKind> {
     })
 }
 
+/// The mod shape every selected shape is, by its `<mod>/<shape>` name.
+pub(crate) fn custom_shape(app: &App) -> Option<String> {
+    of_entities(app, |entity, out| {
+        if let Kind::Shape(shape) = &entity.kind {
+            out.push(shape.custom.as_ref().map(|custom| custom.name.clone()));
+        }
+    })
+    .flatten()
+}
+
 /// Whether shapes are painted.
 pub(crate) fn fill_style(app: &App) -> Option<FillStyle> {
     of_entities(app, |entity, out| {
@@ -145,7 +155,7 @@ pub(crate) fn stroke_width(app: &App) -> Option<f64> {
         |entity, out| match &entity.kind {
             Kind::Shape(shape) => out.push(shape.stroke_width.unwrap_or(DEFAULT_BORDER_WIDTH)),
             Kind::Drawing(drawing) => out.extend(drawing.strokes.iter().map(|s| s.width)),
-            Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Text(_) => {}
+            Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Text(_) | Kind::Mod(_) => {}
         },
         |edge, out| out.push(edge.stroke_width.unwrap_or(DEFAULT_EDGE_WIDTH)),
     ))
@@ -234,7 +244,7 @@ fn can_frame(entity: &Entity) -> bool {
     match &entity.kind {
         Kind::Page(_) => true,
         Kind::File(file) => file.is_html() || file.is_image(),
-        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => false,
     }
 }
 

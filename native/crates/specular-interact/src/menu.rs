@@ -1,7 +1,8 @@
 //! The menu bar's Canvas, Edit, Arrange, Comment, Page, Tools and View
 //! menus, as data.
 //!
-//! Each item is an [`Action`] and takes its shortcut from the row of
+//! Each item is a command of the registry, which gives its label and its
+//! [`Action`]. It takes its shortcut from the row of
 //! [`BINDINGS`] that runs the same action, so a menu and the keyboard cannot
 //! disagree. The shell turns the model into native menus and sends the
 //! action of a chosen item back as an [`Event::Action`](crate::Event).
@@ -10,9 +11,10 @@ use std::borrow::Cow;
 
 use specular_doc::ItemId;
 
+use crate::commands::{Run, command};
 use crate::{
-    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, PageStep,
-    SidebarAction, Tool, groups, page_state,
+    Action, App, BINDINGS, Binding, CanvasAction, Chord, Context, PageState, Tool, groups,
+    page_state,
 };
 
 /// One menu of the menu bar.
@@ -53,21 +55,91 @@ pub(crate) fn binding_of(action: &Action) -> Option<&'static Binding> {
     BINDINGS.iter().find(|binding| binding.action == *action)
 }
 
+/// The registry command `name` as the label and action of a menu item.
+/// `None` for a name the registry lacks or a command that needs arguments.
+fn named(name: &str) -> Option<(&'static str, Action)> {
+    let spec = command(name)?;
+    match spec.plain()? {
+        Run::Action(action) => Some((spec.label, action)),
+        Run::Shell(_) | Run::Api(_) => None,
+    }
+}
+
+/// How a menu's items are enabled and keyed.
+type Make = fn(&App, &'static str, Action) -> MenuItem;
+
+/// The rows of a menu from registry names, with `""` for a line.
+fn rows(app: &App, names: &[&str], make: Make) -> Vec<MenuEntry> {
+    (names.iter())
+        .filter_map(|&name| match name {
+            "" => Some(MenuEntry::Separator),
+            name => named(name).map(|(label, action)| MenuEntry::Item(make(app, label, action))),
+        })
+        .collect()
+}
+
+/// The registry command `name` as a menu item, enabled by the context and
+/// target of its binding.
+pub(crate) fn command_item(app: &App, name: &str) -> Option<MenuItem> {
+    named(name).map(|(label, action)| item(app, label, action))
+}
+
+/// The registry command `name` as an item of the Page menu.
+pub(crate) fn page_command_item(app: &App, name: &str) -> Option<MenuItem> {
+    named(name).map(|(label, action)| page_menu_item(app, label, action))
+}
+
+/// The Edit menu's commands, top to bottom, with `""` for a line.
+const EDIT: &[&str] = &[
+    "edit.undo",
+    "edit.redo",
+    "",
+    "edit.cut",
+    "edit.copy",
+    "edit.paste",
+    "edit.duplicate",
+    "edit.delete",
+    "",
+    "edit.select-all",
+];
+/// The Arrange menu's commands.
+const ARRANGE: &[&str] = &[
+    "arrange.bring-forward",
+    "arrange.send-backward",
+    "arrange.bring-to-front",
+    "arrange.send-to-back",
+    "",
+    "arrange.group",
+    "arrange.ungroup",
+    "arrange.auto-layout",
+];
+/// The Comment menu's commands.
+const COMMENT: &[&str] = &[
+    "comment.annotate-selection",
+    "comment.resolve",
+    "comment.delete",
+];
+/// The View menu's commands.
+const VIEW: &[&str] = &[
+    "view.zoom-in",
+    "view.zoom-out",
+    "view.zoom-reset",
+    "view.zoom-to-fit",
+    "",
+    "view.toggle-sidebar",
+    "layout.switch",
+];
+
 /// The Canvas, Edit, Arrange, Comment, Page, Tools and View menus for `app`
 /// as it is now. The Canvas menu ends in the space's canvases, so its
 /// entries change with the space. In every other menu the entries and
 /// their order never change, only `enabled` and `checked`.
 pub fn menus(app: &App) -> Vec<Menu> {
-    let item = |label, action| MenuEntry::Item(item(app, label, action));
-    let mut canvas = vec![
-        item("New canvas", Action::Canvas(CanvasAction::New)),
-        item(
-            "Duplicate canvas",
-            Action::Canvas(CanvasAction::Duplicate(None)),
-        ),
-        item("Delete canvas", Action::Canvas(CanvasAction::Delete(None))),
-        MenuEntry::Separator,
-    ];
+    let mut canvas = rows(
+        app,
+        &["canvas.new", "canvas.duplicate", "canvas.delete", ""],
+        item,
+    );
     canvas.extend(app.space.canvases().iter().map(|canvas| {
         let mut item = self::item(
             app,
@@ -78,33 +150,9 @@ pub fn menus(app: &App) -> Vec<Menu> {
         item.checked = Some(canvas.is_active());
         MenuEntry::Item(item)
     }));
-    let edit = vec![
-        edit_item(app, "Undo", Action::Undo),
-        edit_item(app, "Redo", Action::Redo),
-        MenuEntry::Separator,
-        edit_item(app, "Cut", Action::Cut),
-        edit_item(app, "Copy", Action::Copy),
-        edit_item(app, "Paste", Action::Paste),
-        item("Duplicate", Action::Duplicate),
-        item("Delete", Action::Delete),
-        MenuEntry::Separator,
-        edit_item(app, "Select all", Action::SelectAll),
-    ];
-    let arrange = vec![
-        item("Bring forward", Action::BringForward),
-        item("Send backward", Action::SendBackward),
-        item("Bring to front", Action::BringToFront),
-        item("Send to back", Action::SendToBack),
-        MenuEntry::Separator,
-        item("Group", Action::Group),
-        item("Ungroup", Action::Ungroup),
-        item("Auto-layout", Action::AutoLayout),
-    ];
-    let comment = vec![
-        item("Annotate selection", Action::AnnotateSelection),
-        item("Resolve comment", Action::ResolveComment(None)),
-        item("Delete comment", Action::DeleteComment(None)),
-    ];
+    let edit = rows(app, EDIT, edit_item);
+    let arrange = rows(app, ARRANGE, item);
+    let comment = rows(app, COMMENT, item);
     let tools = Tool::ALL
         .into_iter()
         .map(|tool| {
@@ -113,14 +161,7 @@ pub fn menus(app: &App) -> Vec<Menu> {
             MenuEntry::Item(item)
         })
         .collect();
-    let view = vec![
-        item("Zoom in", Action::ZoomIn),
-        item("Zoom out", Action::ZoomOut),
-        item("Zoom to 100%", Action::ZoomReset),
-        item("Zoom to fit", Action::ZoomToFit),
-        MenuEntry::Separator,
-        item("Toggle sidebar", Action::Sidebar(SidebarAction::Toggle)),
-    ];
+    let view = rows(app, VIEW, item);
     vec![
         Menu {
             title: "Canvas",
@@ -154,40 +195,43 @@ pub fn menus(app: &App) -> Vec<Menu> {
 }
 
 /// The Page menu: a new page in its own tab, closing the tab showing, then
-/// what the page in the dock
-/// can be asked.
+/// what the page in the dock can be asked.
 fn page_entries(app: &App) -> Vec<MenuEntry> {
-    vec![
-        MenuEntry::Item(item(app, "New page tab", Action::NewPageTab)),
-        MenuEntry::Item(item(app, "Close tab", Action::CloseTab(None))),
-        page_item(app, "Edit address", Action::EditPageUrl),
-        MenuEntry::Separator,
-        page_item(app, "Back", Action::PageBack),
-        page_item(app, "Forward", Action::PageForward),
-        page_item(app, "Reload", Action::PageReload),
-        page_item(app, "Stop", Action::PageStop),
-        MenuEntry::Separator,
-        page_item(app, "Device frame", Action::StepPage(PageStep::Frame)),
-        page_item(app, "Device color", Action::StepPage(PageStep::FrameColor)),
-        page_item(app, "Rotate", Action::StepPage(PageStep::Rotate)),
-        page_item(app, "Color scheme", Action::StepPage(PageStep::Scheme)),
-    ]
+    let mut entries = rows(app, &["page.new-tab", "tab.close"], item);
+    entries.extend(rows(
+        app,
+        &[
+            "page.edit-address",
+            "",
+            "page.back",
+            "page.forward",
+            "page.reload",
+            "page.stop",
+            "",
+            "page.frame",
+            "page.frame-color",
+            "page.rotate",
+            "page.scheme",
+        ],
+        page_menu_item,
+    ));
+    entries
 }
 
 /// An Edit menu item that follows the focus: inside an entered page it is
 /// the page's command, under the same key, and always enabled, since only
 /// the page knows whether it has anything to undo or copy.
-fn edit_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
+fn edit_item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let canvas = item(app, label, action);
     let edit = crate::page_edit(&canvas.action).filter(|_| Context::EnteredPage.holds(app));
-    MenuEntry::Item(match edit {
+    match edit {
         Some(edit) => MenuItem {
             enabled: true,
             action: Action::PageEdit(edit),
             ..canvas
         },
         None => canvas,
-    })
+    }
 }
 
 /// `action` as an item, enabled by the context and target of its binding.
@@ -197,7 +241,7 @@ pub(crate) fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let context = binding.map_or(Context::Canvas, |binding| binding.context);
     MenuItem {
         label: Cow::Borrowed(label),
-        chord: binding.map(|binding| binding.chord),
+        chord: app.keymap.chord_for(&action, binding),
         enabled: context.holds(app) && app.session.gesture.is_none() && has_target(app, &action),
         checked: None,
         action,
@@ -207,12 +251,7 @@ pub(crate) fn item(app: &App, label: &'static str, action: Action) -> MenuItem {
 /// An item of the Page menu. It works on a selected page as well as an
 /// entered one, whatever its key's context, and shows a key only where the
 /// key does the same in both: the bracket keys restack a selected page.
-fn page_item(app: &App, label: &'static str, action: Action) -> MenuEntry {
-    MenuEntry::Item(page_menu_item(app, label, action))
-}
-
-/// An item of the Page menu as a [`MenuItem`].
-pub(crate) fn page_menu_item(app: &App, label: &'static str, action: Action) -> MenuItem {
+fn page_menu_item(app: &App, label: &'static str, action: Action) -> MenuItem {
     let chord = binding_of(&action)
         .filter(|binding| matches!(binding.context, Context::PageTarget | Context::FrameTarget))
         .map(|binding| binding.chord);
@@ -257,6 +296,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         // Choosing the canvas already showing is harmless, and its item
         // has to stay enabled to keep its check mark readable.
         Action::Canvas(_)
+        | Action::Project(_)
         | Action::Chat(_)
         | Action::Repo(_)
         | Action::Space(_)
@@ -272,6 +312,7 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::RevealComment(_)
         | Action::Sidebar(_)
         | Action::SetCamera(_)
+        | Action::Follow(_)
         | Action::FocusComment(_)
         | Action::Show(_)
         | Action::OpenTab(_)
@@ -282,6 +323,12 @@ pub(crate) fn has_target(app: &App, action: &Action) -> bool {
         | Action::ShowPrevious
         | Action::NewPageTab
         | Action::Nudge { .. }
+        | Action::AddItem(_)
+        | Action::PressControl(_)
+        | Action::Layout(_)
+        | Action::Overlay(_)
+        | Action::DismissNotice(_)
+        | Action::Mod(_)
         | Action::Paste
         | Action::ZoomIn
         | Action::ZoomOut
@@ -329,5 +376,6 @@ pub(crate) const fn tool_label(tool: Tool) -> &'static str {
         Tool::Draw => "Draw",
         Tool::Comment => "Comment",
         Tool::Inspect => "Inspect",
+        Tool::Mod(_) => "Mod tool",
     }
 }

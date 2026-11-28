@@ -4464,7 +4464,7 @@
       "y": 1700,
       "width": 375,
       "height": 667,
-      "url": "https://example.org/docs#intro",
+      "url": "https://example.org/#intro",
       "presetIndex": 0,
       "source": "generated",
       "colorScheme": "dark"
@@ -5136,7 +5136,7 @@
       "createdAt": "2026-01-01T00:00:00.000Z",
       "pageAnchor": {
         "pageId": "page-mobile",
-        "pageUrl": "https://example.org/docs"
+        "pageUrl": "https://example.org/"
       }
     },
     {

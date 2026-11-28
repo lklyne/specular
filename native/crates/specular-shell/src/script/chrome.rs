@@ -21,11 +21,13 @@ pub(crate) fn kit_chrome_at(app: &App, at: Vec2) -> Option<&'static str> {
     if at.y >= viewport.y || at.x < 0.0 {
         return Some("outside the window");
     }
-    if at.y < TAB_ROW {
+    let regions = app.regions();
+    let insets = app.insets();
+    if regions.tabs && at.y < TAB_ROW {
         return Some("under the tab row");
     }
-    if at.x < app.covered_left() {
-        return Some(if app.session().sidebar.shown() {
+    if at.x < insets.left {
+        return Some(if app.session().sidebar.shown() && regions.sidebar {
             "under the sidebar or the docked tools"
         } else {
             "under the docked tools"
@@ -33,8 +35,8 @@ pub(crate) fn kit_chrome_at(app: &App, at: Vec2) -> Option<&'static str> {
     }
     // The armed tool's options stand in a column beside its docked button.
     let bar = toolbar(app);
-    let docked = bar.tools == ToolsPlace::Docked;
-    if docked && tool_options(app).is_some() && at.x < app.covered_left() + TOOL_OPTIONS_REACH {
+    let docked = regions.toolbar && bar.tools == ToolsPlace::Docked;
+    if docked && tool_options(app).is_some() && at.x < insets.left + TOOL_OPTIONS_REACH {
         return Some("under the armed tool's options");
     }
     if at.x >= viewport.x {
@@ -43,7 +45,7 @@ pub(crate) fn kit_chrome_at(app: &App, at: Vec2) -> Option<&'static str> {
     // The dock's bar lies over the canvas's top while it holds something;
     // in a tab that shows its item the viewport already starts under it.
     let dock_shown = (tool_options(app).is_none() && dock(app).is_some()) || !bar.view.is_empty();
-    if dock_shown && app.lens().is_none() && at.y < app.covered_top() + DOCK_ROW {
+    if regions.dock && dock_shown && app.lens().is_none() && at.y < insets.top + DOCK_ROW {
         return Some("under the dock");
     }
     None

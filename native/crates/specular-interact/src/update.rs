@@ -8,9 +8,10 @@ pub(crate) use self::document::{document_step, drop_dangling, open_document};
 use self::page_event::on_page_event;
 
 use glam::DVec2;
-use specular_core::{InputEvent, PageNav};
+use specular_core::{InputEvent, Modifiers, PageNav};
 
 use crate::focus::{leave_unless_selected, set_focus};
+use crate::panel::activate_control;
 use crate::stack_order::Move;
 use crate::{
     Action, App, Effect, Event, Focus, ToolDefaultPatch, api, attach, bindings, camera, chat,
@@ -49,6 +50,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
     // unless it ended the drag: the hover is not kept up during one.
     let pointing = matches!(event, Event::Pointer(_));
     let opened = attach::opens(&event);
+    let by_person = crate::presence::follow::by_person(&event);
     let layouts = pages::layouts(app);
     match event {
         Event::Pointer(input) => pointer::on_pointer(app, &input, &mut effects),
@@ -66,7 +68,7 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::Image { image, notice } => images::on_notice(app, image, notice, &mut effects),
         Event::Note { file, notice } => notes::on_notice(app, &file, notice, &mut effects),
         Event::NoteCreated { file, rect } => edit::note::created(app, file, rect, &mut effects),
-        Event::NoteHeights(heights) => notes::on_heights(app, heights),
+        Event::NoteLayouts(layouts) => notes::on_layouts(app, layouts),
         Event::Tick { unix_ms } => on_tick(app, unix_ms, &mut effects),
         Event::ViewportResized(size) => app.session.viewport = size,
         Event::DocumentOpened(document) => open_document(app, *document, &mut effects),
@@ -76,6 +78,8 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
             pages::reconcile(&before, app, &mut effects);
         }
         Event::SpaceOpened(opened) => space::open(app, *opened, &mut effects),
+        Event::ProjectOpened(opened) => space::add_project(app, *opened, &mut effects),
+        Event::ProjectClosed(id) => space::remove_project(app, &id, &mut effects),
         Event::CanvasFileChanged { canvas, document } => {
             space::file_changed(app, &canvas, *document, &mut effects);
         }
@@ -97,20 +101,28 @@ pub fn update(app: &mut App, event: Event) -> Vec<Effect> {
         Event::ContextMenu(screen) => crate::panel::open_menu_at(app, screen),
         Event::ShellChrome => app.session.panel = crate::PanelUi::drawn_by_shell(),
         Event::ChromeLayout => app.session.panel.chrome_covers = true,
+        Event::LayoutsLoaded(read) => app.chrome.load(*read),
+        Event::KeymapLoaded(keymap) => app.keymap = keymap,
+        Event::ModCatalog(catalog) => crate::mods::on_catalog(app, catalog, &mut effects),
         Event::MenuClosed => app.session.panel.menu = None,
         Event::ChatPanel(available) => app.session.chat.set_available(available),
         Event::Motion(on) => app.session.motion.enable(on),
         Event::ReduceMotion(on) => app.session.motion.reduce(on),
         Event::ThreadsLoaded { threads, index } => chat::on_loaded(app, threads, &index),
+        Event::ThreadsAdded { threads, index } => app.threads.add(threads, &index),
         Event::Agent { thread, notice } => chat::on_agent(app, &thread, notice, &mut effects),
         Event::ReposLoaded(repos) => app.repos = *repos,
         Event::Models(news) => app.models.hear(news),
-        Event::SettingsLoaded(settings) => crate::settings::load(app, settings),
+        Event::SettingsLoaded(settings) => crate::settings::load(app, settings, &mut effects),
         Event::About(rows) => app.about = rows,
         Event::SpaceNeeded(ask) => app.space_ask = Some(ask),
         Event::AgentAct(act) => crate::presence::on_act(app, act, &mut effects),
         Event::Api(call) => api::run(app, call, &mut effects),
         Event::Share(event) => crate::shared::on_event(app, event, &mut effects),
+    }
+    // The person moving the camera takes it back from a follow.
+    if by_person && app.session.camera != camera {
+        crate::presence::follow::stop(app);
     }
     crate::showing::motion::interrupt(app, leaving, camera, app.space.switches() != switches);
     crate::showing::settle(app);
@@ -162,14 +174,25 @@ fn settle_tool(app: &mut App, before: crate::Tool) {
     if app.session.tool != before {
         comment::on_tool_change(app);
         inspect::on_tool_change(app);
+        crate::mods::cancel_stroke(app);
     }
 }
 
 /// Takes `tool` in hand, ending a text edit. A gesture in flight keeps its tool.
-fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
+pub(crate) fn set_tool(app: &mut App, tool: crate::Tool, effects: &mut Vec<Effect>) {
     if app.session.gesture.is_none() {
         edit::end(app, effects);
         app.session.tool = tool;
+    }
+}
+
+/// Takes the variant's tool in hand with the variant as its default. A
+/// gesture in flight keeps its tool.
+fn set_tool_variant(app: &mut App, patch: ToolDefaultPatch, effects: &mut Vec<Effect>) {
+    if app.session.gesture.is_none() {
+        edit::end(app, effects);
+        app.session.tool = patch.tool();
+        set_tool_default(app, patch, effects);
     }
 }
 
@@ -183,13 +206,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::SetTool(tool) => set_tool(app, tool, effects),
         Action::SetTheme(theme) => theme::choose(app, theme, true, effects),
         Action::SetToolDefault(patch) => set_tool_default(app, patch, effects),
-        Action::SetToolVariant(patch) => {
-            if app.session.gesture.is_none() {
-                edit::end(app, effects);
-                app.session.tool = patch.tool();
-                set_tool_default(app, patch, effects);
-            }
-        }
+        Action::SetToolVariant(patch) => set_tool_variant(app, patch, effects),
         Action::PageEdit(edit) => crate::page_input::edit(app, edit, effects),
         // While text is edited, undo and redo are the editor's own.
         Action::Undo | Action::Redo if app.session.editing.is_some() => {
@@ -207,6 +224,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::RevealComment(id) => reveal::comment(app, &id, effects),
         Action::Sidebar(action) => app.session.sidebar.apply(action),
         Action::SetCamera(camera) => app.session.camera = camera,
+        Action::Follow(agent) => crate::presence::follow::set(app, agent),
         // The focus and the selection are never both set, so Delete has one
         // thing to remove.
         Action::Delete if app.session.focused_comment.is_some() => {
@@ -217,6 +235,7 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::Nudge { dx, dy } => verb(app, effects, |app, effects| {
             verbs::nudge(app, DVec2::new(dx, dy), effects);
         }),
+        Action::AddItem(item) => verb(app, effects, |app, fx| crate::add_item::add(app, item, fx)),
         Action::SetProperty(property) => property::set(app, &property, effects),
         Action::StepPage(step) => property::set(app, &step.next(app), effects),
         Action::Format(format) if app.session.gesture.is_none() => edit::format(app, format),
@@ -271,11 +290,24 @@ pub(crate) fn run_action(app: &mut App, action: Action, effects: &mut Vec<Effect
         Action::PageNavigate(url) => page_state::navigate(app, PageNav::To(url), effects),
         Action::ToggleSync => sync::toggle(app, effects),
         Action::Canvas(action) => space::act(app, action, effects),
+        Action::Project(action) => space::project_act(app, action, effects),
         Action::Chat(action) => chat::run(app, action, effects),
         Action::Repo(action) => crate::repos::run(app, action, effects),
         Action::Space(action) => crate::first_run::run(action, effects),
         Action::Setting(action) => crate::settings::run(app, action, effects),
         Action::Share(action) => crate::share_button::run(app, action, effects),
+        Action::PressControl(id) => activate_control(app, &id, Modifiers::default(), effects),
+        Action::Layout(action) => crate::chrome::run_layout_action(app, action, effects),
+        Action::Overlay(action) => crate::overlays::run(app, action),
+        Action::DismissNotice(id) => dismiss_notice(app, &id),
+        Action::Mod(action) => crate::mods::run(app, *action, effects),
+    }
+}
+
+/// Takes a notice away. Dismissing the "Install mods" ask declines it.
+fn dismiss_notice(app: &mut App, id: &str) {
+    if !crate::mods::decline(app, id) {
+        crate::notices::dismiss(app, id);
     }
 }
 
@@ -354,6 +386,7 @@ fn on_tick(app: &mut App, unix_ms: u64, effects: &mut Vec<Effect>) {
     crate::showing::turn::on_tick(app);
     sync::on_tick(app, effects);
     crate::presence::on_tick(app, effects);
+    crate::presence::follow::on_tick(app, elapsed);
     crate::flick::on_tick(app, effects);
     // A camera transition has taken this tick's step, which an svg's raster
     // waits out like any other zoom.

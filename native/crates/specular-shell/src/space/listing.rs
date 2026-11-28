@@ -7,7 +7,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
-use specular_interact::{CanvasId, Space, canvas_file_name, legacy_canvas_file_name};
+use specular_interact::{CanvasId, ProjectId, Space, canvas_file_name, legacy_canvas_file_name};
 
 use crate::persist::write_atomic;
 
@@ -143,7 +143,12 @@ fn read_meta(folder: &Path) -> Map<String, Value> {
 /// and name, in order. Keys this app does not use, and each tab's
 /// `updatedAt` and `expanded`, are kept as the file has them. A tab that
 /// is new to the index is stamped `now`.
-pub(crate) fn write_meta(folder: &Path, space: &Space, now: &str) -> io::Result<()> {
+pub(crate) fn write_meta(
+    folder: &Path,
+    space: &Space,
+    project: &ProjectId,
+    now: &str,
+) -> io::Result<()> {
     let mut meta = read_meta(folder);
     let old_tabs = meta.remove("tabs");
     let old = |id: &str, key: &str| {
@@ -151,9 +156,9 @@ pub(crate) fn write_meta(folder: &Path, space: &Space, now: &str) -> io::Result<
             .and_then(|tabs| tabs.iter().find(|tab| tab["id"].as_str() == Some(id)))
             .and_then(|tab| tab.get(key).cloned())
     };
-    let tabs: Vec<Value> = (space.canvases().iter())
+    let tabs: Vec<Value> = (space.canvases_of(project))
         .map(|canvas| {
-            let id = canvas.id.as_str();
+            let id = canvas.tab.as_str();
             json!({
                 "id": id,
                 "name": canvas.name,
@@ -162,7 +167,10 @@ pub(crate) fn write_meta(folder: &Path, space: &Space, now: &str) -> io::Result<
             })
         })
         .collect();
-    meta.insert("activeTabId".to_owned(), json!(space.active().id.as_str()));
+    let active = space.active();
+    if active.project == *project {
+        meta.insert("activeTabId".to_owned(), json!(active.tab.as_str()));
+    }
     meta.insert("tabs".to_owned(), Value::Array(tabs));
     let text = serde_json::to_string_pretty(&Value::Object(meta))?;
     std::fs::create_dir_all(folder.join(META_DIR))?;

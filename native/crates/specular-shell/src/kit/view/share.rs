@@ -43,7 +43,7 @@ fn content(model: &ShareButton) -> AnyElement {
         .outline()
         .w_full()
         .h(px(ROW))
-        .rounded(px(RADIUS))
+        .rounded(crate::theme::corner(RADIUS))
         .child(
             h_flex()
                 .w_full()
@@ -76,7 +76,7 @@ fn content(model: &ShareButton) -> AnyElement {
                 .ghost()
                 .w_full()
                 .h(px(ROW - 4.0))
-                .rounded(px(RADIUS - 2.0))
+                .rounded(crate::theme::corner(RADIUS - 2.0))
                 .child(
                     h_flex()
                         .w_full()
@@ -99,15 +99,15 @@ fn content(model: &ShareButton) -> AnyElement {
         .primary()
         .w_full()
         .h(px(ROW))
-        .rounded(px(RADIUS))
+        .rounded(crate::theme::corner(RADIUS))
         .disabled(!model.copy.enabled)
         .child(text(model.copy.label.to_string()))
         .child(mark(&model.copy.id))
         .on_click(move |_, window, cx| run(&action, window, cx));
     v_flex()
         .w(px(WIDTH))
-        .p_1()
-        .gap_2()
+        .p(crate::theme::space(1.0))
+        .gap(crate::theme::space(2.0))
         .child(trigger)
         .children(choices)
         .child(copy)
@@ -120,15 +120,26 @@ fn content(model: &ShareButton) -> AnyElement {
         .into_any_element()
 }
 
+/// What the Share slot holds this frame, for a tab row mod's `Share`: a
+/// share mod, or the app's own button.
+pub(crate) fn share_slot() -> AnyElement {
+    crate::mods::share_slot().unwrap_or_else(|| {
+        canvas::tool_models().map_or_else(
+            || div().into_any_element(),
+            |(toolbar, _)| share(&toolbar.share),
+        )
+    })
+}
+
 pub(super) fn share(model: &ShareButton) -> AnyElement {
     let trigger = Button::new(element_id(&model.id.child("trigger")))
         .primary()
         .small()
-        .rounded(px(RADIUS))
+        .rounded(crate::theme::corner(RADIUS))
         .child(div().text_xs().child("Share"))
         .child(mark(&model.id));
     Popover::new(element_id(&model.id))
-        .p_2()
+        .p(crate::theme::space(2.0))
         .trigger(trigger)
         .on_open_change(|_, _, _| CHOOSING.set(false))
         .content(move |_, _, _| {

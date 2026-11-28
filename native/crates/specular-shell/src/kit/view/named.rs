@@ -34,7 +34,7 @@ fn centre(bounds: Bounds<Pixels>) -> Vec2 {
 
 /// An element that notes where the control named `id` is: the bounds of
 /// what it is a child of.
-pub(super) fn mark(id: &ControlId) -> impl IntoElement + use<> {
+pub(crate) fn mark(id: &ControlId) -> impl IntoElement + use<> {
     let name = id.as_str().to_owned();
     canvas(
         move |bounds, window, _| {

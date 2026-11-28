@@ -9,8 +9,8 @@ use specular_interact::{Image, ImageState};
 use super::frame::{Frame, canvas_rect};
 use super::{document, image, page, palette};
 use crate::{
-    Color, ImageId, Item, PathCommand, PathDraw, PathStroke, Point, RectDraw, Scene, TextAlign,
-    TextRun,
+    Color, ImageId, Item, PathCommand, PathDraw, PathStroke, Point, Rect, RectDraw, Scene,
+    TextAlign, TextRun,
 };
 
 const CORNER_RADIUS: f32 = 4.0;
@@ -49,6 +49,13 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
             ImageState::Loading | ImageState::Missing | ImageState::Failed => {}
         }
     }
+    let name = file.file.rsplit('/').next().unwrap_or(&file.file);
+    card(frame, rect, name, scene);
+}
+
+/// The card a file is drawn as while it has nothing else to show: a sheet
+/// glyph over `name`. A mod item with nothing to show yet is drawn the same.
+pub(crate) fn card(frame: &Frame<'_>, rect: Rect, name: &str, scene: &mut Scene) {
     scene.push(palette::card_shadow(frame.colors, rect, CORNER_RADIUS));
     scene.push(Item::canvas(
         RectDraw::filled(rect, frame.colors.card).with_corner_radius(CORNER_RADIUS),
@@ -62,7 +69,6 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, file: &FileRef, scene: &m
     let glyph_origin = Point::new(centre.x - glyph_size / 2.0, top);
     scene.push(Item::canvas(glyph(glyph_origin, frame.colors.file_glyph)).clipped(rect));
 
-    let name = file.file.rsplit('/').next().unwrap_or(&file.file);
     let run = TextRun {
         wrap_width: Some((rect.width - PADDING * 2.0).max(0.0)),
         align: TextAlign::Centre,

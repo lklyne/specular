@@ -58,6 +58,7 @@ pub(super) fn set(property: &Property, file: &mut FileRef, rect: Rect) -> bool {
         | Property::TextAlign(_)
         | Property::TextVerticalAlign(_)
         | Property::ShapeKind(_)
+        | Property::CustomShape(_)
         | Property::FillStyle(_)
         | Property::BorderStyle(_)
         | Property::StrokeWidth(_)

@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
 use gpui_kit::component::popover::Popover;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, h_flex};
 use gpui_kit::{
@@ -24,7 +24,7 @@ use specular_interact::{
     ToolbarModel, ToolbarSection,
 };
 
-use super::controls::{CONTROL, element_id, face};
+use super::controls::{CONTROL, element_id, face, face_in};
 use super::glyphs::{glyph, ink};
 use super::named::mark;
 use crate::{canvas, theme};
@@ -97,30 +97,39 @@ pub(super) fn dropdown(model: &Dropdown) -> AnyElement {
 }
 
 /// A dropdown as a row of the list it is in: its value at the start and a
-/// chevron at the far end, with its own list opening beside it.
-pub(super) fn dropdown_row(model: &Dropdown) -> AnyElement {
+/// chevron at the far end, with its own list opening beside it. It is
+/// drawn as the option rows around it are: the `hover` fill under the
+/// pointer, and the `on` fill with `onText` words while its list is open.
+pub(super) fn dropdown_row(model: &Dropdown, cx: &App) -> AnyElement {
+    let open = OPEN.with(|open| open.borrow().contains(&model.id));
+    let group = element_id(&model.id.child("row"));
+    let chevron = ink(if open {
+        theme::on_text()
+    } else {
+        theme::text_muted()
+    });
+    let colors = ButtonCustomVariant::new(cx)
+        .color(gpui_kit::transparent_black())
+        .foreground(theme::solid(theme::text()))
+        .hover(theme::solid(theme::control_hover()))
+        .active(theme::solid(theme::control_on()));
     let trigger = Button::new(element_id(&model.id.child("trigger")))
-        .ghost()
+        .custom(colors)
         .xsmall()
         .h(px(CONTROL))
         .w_full()
-        .px_2()
+        .px(crate::theme::space(2.0))
         .child(
             h_flex()
                 .flex_1()
                 .items_center()
                 .justify_between()
-                .child(face(&model.summary, false))
-                .child(glyph(
-                    Icon::ChevronRight,
-                    ink(theme::text_muted()),
-                    None,
-                    false,
-                    12.0,
-                )),
+                .child(face_in(&model.summary, false, open, Some(group.clone())))
+                .child(glyph(Icon::ChevronRight, chevron, None, false, 12.0)),
         );
     div()
         .w_full()
+        .group(group)
         .child(opens(model, trigger))
         .into_any_element()
 }
@@ -182,11 +191,10 @@ fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
         .child(mark(&model.id));
     let named = model.id.clone();
     Popover::new(element_id(&model.id))
-        // The room a Kit menu leaves around its rows, so every list that
-        // opens has the same edge.
-        .p_1()
+        // The list draws its own surface, the one every list that opens has.
+        .appearance(false)
         .trigger(trigger)
-        .on_open_change(move |opened, _, _| {
+        .on_open_change(move |opened, window, _| {
             OPEN.with(|open| {
                 let mut open = open.borrow_mut();
                 if *opened {
@@ -195,6 +203,8 @@ fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
                     open.remove(&named);
                 }
             });
+            // A row that opens a list is drawn open from what is open here.
+            window.refresh();
         })
         .content(move |_, window, cx| {
             let popover = cx.entity();
@@ -202,7 +212,10 @@ fn opens(model: &Dropdown, trigger: Button) -> AnyElement {
                 popover.update(cx, |state, cx| state.dismiss(window, cx));
             });
             let content = find_dropdown(&id).map(|dropdown| dropdown.content);
-            div()
+            theme::popup_surface(div())
+                // The room a Kit menu leaves around its rows, so every list
+                // that opens has the same edge.
+                .p(crate::theme::space(1.0))
                 .text_color(cx.theme().popover_foreground)
                 .child(sections(&content.unwrap_or_default(), &dismiss, window, cx))
         })

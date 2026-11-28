@@ -3,10 +3,7 @@
 use anyhow::{Context as _, bail, ensure};
 use glam::Vec2;
 use specular_core::{ElementPlace, Modifiers, PixelRect};
-use specular_interact::{
-    Action, App, Appearance, CanvasAction, Event, KeyInput, Orientation, PageNotice, Property,
-    Showing,
-};
+use specular_interact::{App, Appearance, Event, KeyInput, PageNotice};
 
 use super::super::words::{key_named, number, theme_named};
 
@@ -116,30 +113,5 @@ fn notice(said: &[&str]) -> anyhow::Result<PageNotice> {
         _ => bail!(
             "a page says `scrolled X Y`, `url U`, `fit covers|inside`, `element SEL X Y [fixed]` or `composition X Y W H`"
         ),
-    })
-}
-
-/// The canvas verbs `act` names beyond the shared ones.
-pub(crate) fn action_named(name: &str) -> Option<Action> {
-    if let Some(id) = name.strip_prefix("show:") {
-        return Some(Action::Show(Showing::Item(id.into())));
-    }
-    Some(match name {
-        "show-canvas" => Action::Show(Showing::Canvas),
-        "landscape" => Action::SetProperty(Property::Orientation(Orientation::Landscape)),
-        "portrait" => Action::SetProperty(Property::Orientation(Orientation::Portrait)),
-        "bring-forward" => Action::BringForward,
-        "send-backward" => Action::SendBackward,
-        "bring-to-front" => Action::BringToFront,
-        "send-to-back" => Action::SendToBack,
-        "group" => Action::Group,
-        "auto-layout" => Action::AutoLayout,
-        "duplicate" => Action::Duplicate,
-        "copy" => Action::Copy,
-        "delete" => Action::Delete,
-        "new-canvas" => Action::Canvas(CanvasAction::New),
-        "duplicate-canvas" => Action::Canvas(CanvasAction::Duplicate(None)),
-        "delete-canvas" => Action::Canvas(CanvasAction::Delete(None)),
-        _ => return None,
     })
 }

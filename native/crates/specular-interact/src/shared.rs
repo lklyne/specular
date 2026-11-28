@@ -237,7 +237,13 @@ pub(crate) fn connect(
     effects: &mut Vec<Effect>,
 ) -> ApiOutcome {
     if fresh {
-        if let Err(reason) = crate::space::create(app, None, true, effects) {
+        if let Err(reason) = crate::space::create(
+            app,
+            &app.space.active().project.clone(),
+            None,
+            true,
+            effects,
+        ) {
             return ApiOutcome::Refused(reason);
         }
     } else if app.history.is_shared() {

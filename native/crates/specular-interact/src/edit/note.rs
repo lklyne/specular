@@ -98,6 +98,20 @@ pub(crate) fn finish(app: &mut App, edit: TextEdit, effects: &mut Vec<Effect>) {
     update::document_step(app, step, effects);
 }
 
+/// Writes `text` to `file` as one undo step, outside any edit.
+pub(crate) fn replace(app: &mut App, file: &str, text: String, effects: &mut Vec<Effect>) {
+    let Some(before) = text_of(app.session.notes.get(file)).map(str::to_owned) else {
+        return;
+    };
+    write(app, file, &text, effects);
+    hold(app, file, &before);
+    let step = Command::SetNote {
+        file: file.to_owned(),
+        text: Some(text),
+    };
+    update::document_step(app, step, effects);
+}
+
 /// Makes `text` what the document holds for `file`, with no undo step.
 pub(crate) fn hold(app: &mut App, file: &str, text: &str) {
     if app.document.note(file) == Some(text) {
@@ -180,7 +194,8 @@ pub(crate) fn keep_both(
         | Kind::Text(_)
         | Kind::Group(_)
         | Kind::Drawing(_)
-        | Kind::Shape(_) => None,
+        | Kind::Shape(_)
+        | Kind::Mod(_) => None,
     });
     if let Some((rect, shown)) = beside {
         let id = EntityId::from(app.fresh_id().as_str());

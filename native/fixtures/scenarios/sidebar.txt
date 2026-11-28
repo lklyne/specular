@@ -54,10 +54,10 @@ control sidebar.pages.comment.note-region-mobile
 hover-control sidebar.notes.group-b
 
 # zoom to fit leaves the sidebar's width out, and takes it back when hidden
-act zoom-to-fit
+run view.zoom-to-fit
 sidebar off
 expect sidebar off
-act zoom-to-fit
+run view.zoom-to-fit
 
 # all of that was a way of looking: the kitchen sink is as it was
 expect undo none

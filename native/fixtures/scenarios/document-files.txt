@@ -41,27 +41,27 @@ key escape
 expect effects has write-note { file: "Untitled Note.md", text: "oneab" }
 expect effects has save
 expect entity @top note oneab
-act undo
+run edit.undo
 expect effects has write-note { file: "Untitled Note.md", text: "" }
-act redo
+run edit.redo
 expect pages has note ready oneab
 # an edit that changes nothing writes the file but leaves no step
 double-click 300 250
 type a
 key backspace
 key escape
-act undo
+run edit.undo
 expect pages has note ready\s
-act redo
+run edit.redo
 
 # a change on disk while not editing reloads it; undo goes back from it
 note-text Untitled\sNote.md theirs
 expect pages has note ready theirs
 expect effects lacks write-note
 # undo puts back the text the edit started from, redo the one from disk
-act undo
+run edit.undo
 expect effects has write-note { file: "Untitled Note.md", text: "" }
-act redo
+run edit.redo
 expect effects has write-note { file: "Untitled Note.md", text: "theirs" }
 
 # a change on disk while editing keeps both texts: a copy beside it
@@ -205,7 +205,7 @@ expect count document 4
 expect effects lacks load-note
 key backspace
 key backspace
-act undo
+run edit.undo
 expect effects lacks load-note
 expect pages has note ready line 0
 # the shell says the file went missing, failed, then came back
@@ -226,4 +226,26 @@ key cmd+a
 control format.bold
 expect editing **back**
 key escape
+
+# a click on a tick box of a Document being read ticks that task in the
+# file as one step, and selects nothing; once measured, as the wheel is
+note-text Untitled\sNote.md - [ ] one\n- [ ] two
+camera 0,0,1
+click 1300 200
+wait 10
+wait 10
+click 220 140
+expect effects has write-note { file: "Untitled Note.md", text: "- [ ] one
+expect effects has - [x] two" }
+click 220 120
+expect effects has text: "- [x] one
+# the text beside the box is the card's, as before
+click 300 120
+expect effects lacks write-note
+expect count selected 1
+run edit.undo
+expect effects has text: "- [ ] one
+expect effects has - [x] two" }
+run edit.undo
+expect effects has - [ ] two" }
 undo-to-start

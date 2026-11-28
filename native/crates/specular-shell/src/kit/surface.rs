@@ -33,6 +33,8 @@ pub(crate) struct WindowAsks {
     pub(crate) ime_area: Cell<(Vec2, Vec2)>,
     /// The field of the chrome that is to be given the keys.
     pub(crate) field: RefCell<Option<ControlId>>,
+    /// The window's own command a key of `keys.json` asked for.
+    pub(crate) shell: Cell<Option<specular_interact::ShellCommand>>,
     /// Set when one of the above changed, until GPUI has been told.
     pub(crate) changed: Cell<bool>,
 }
@@ -44,6 +46,7 @@ impl Default for WindowAsks {
             ime_allowed: Cell::new(false),
             ime_area: Cell::new((Vec2::ZERO, Vec2::ZERO)),
             field: RefCell::new(None),
+            shell: Cell::new(None),
             changed: Cell::new(false),
         }
     }
@@ -66,6 +69,9 @@ pub(crate) struct CanvasSurface {
     asks: Rc<WindowAsks>,
     /// Whether the last render presented, so a change is logged once.
     presenting: bool,
+    /// Whether the layer presents with the transaction, which it does
+    /// while the window is being resized by hand.
+    with_transaction: bool,
     /// Frame times, when the run asked for them.
     pub(crate) pacing: Option<Pacing>,
 }
@@ -147,6 +153,7 @@ impl CanvasSurface {
             slot_size: size,
             asks,
             presenting: true,
+            with_transaction: false,
             pacing: None,
         })
     }
@@ -179,6 +186,11 @@ impl CanvasSurface {
         resized
     }
 
+    /// Whether the user is dragging the window's edge.
+    pub(crate) fn live_resizing(&self) -> bool {
+        self.native.in_live_resize()
+    }
+
     /// The size the surface is configured at, in pixels.
     pub(crate) fn pixel_size(&self) -> specular_core::PixelSize {
         specular_core::PixelSize::new(self.config.width, self.config.height)
@@ -192,6 +204,14 @@ impl CanvasSurface {
     /// Brings the surface in step with the view's size and the display's
     /// scale. Returns the new scale when the display's changed.
     pub(crate) fn sync(&mut self) -> Option<f32> {
+        // During a live resize GPUI presents its chrome in the window's
+        // resize transaction. The canvas's frames go in the same one, or
+        // the canvas lags the window edge and flickers.
+        let live = self.native.in_live_resize();
+        if live != self.with_transaction {
+            self.with_transaction = live;
+            self.native.set_presents_with_transaction(live);
+        }
         let (width, height) = self.native.content_size();
         let size = Vec2::new(width as f32, height as f32);
         let native_scale = self.native.scale();
@@ -346,6 +366,10 @@ impl ShellWindow for CanvasSurface {
         self.capture_area(camera, self.slot_size, scene, page_of)
     }
 
+    fn capture_whole(&mut self) -> anyhow::Result<(Vec<u8>, u32, u32)> {
+        crate::whole_shot::capture(self.native.window_number())
+    }
+
     fn capture_area(
         &mut self,
         camera: Camera,
@@ -391,6 +415,11 @@ impl ShellWindow for CanvasSurface {
 
     fn edit_field(&self, field: &ControlId) {
         self.asks.field.replace(Some(field.clone()));
+        self.asks.changed.set(true);
+    }
+
+    fn run_shell(&self, command: specular_interact::ShellCommand) {
+        self.asks.shell.set(Some(command));
         self.asks.changed.set(true);
     }
 

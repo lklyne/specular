@@ -7,7 +7,10 @@
 //! so a canvas costs nothing while it is not shown and a page reloads when
 //! its canvas comes back.
 
+mod projects;
 mod swap;
+
+pub(crate) use self::projects::{add_project, project_act, remove_project};
 
 use self::swap::{activate, enter, new_canvas, parked};
 
@@ -16,8 +19,8 @@ use std::mem;
 use specular_doc::Document;
 
 use super::{
-    Canvas, CanvasId, CanvasState, CanvasView, DEFAULT_CANVAS_NAME, OpenedSpace, Parked,
-    SavedCanvas, Space, canvas_file_name, names,
+    Canvas, CanvasId, CanvasState, CanvasView, DEFAULT_CANVAS_NAME, OpenedCanvas, OpenedSpace,
+    Parked, ProjectId, SavedCanvas, Space, canvas_file_name, names,
 };
 use crate::focus::set_focus;
 use crate::pages::{self};
@@ -41,7 +44,10 @@ pub(crate) fn act(app: &mut App, action: CanvasAction, effects: &mut Vec<Effect>
             switch(app, &canvas, effects);
             Ok(())
         }
-        CanvasAction::New => create(app, None, true, effects).map(|_| ()),
+        CanvasAction::New(project) => {
+            let project = project.unwrap_or_else(|| app.space.active().project.clone());
+            create(app, &project, None, true, effects).map(|_| ())
+        }
         CanvasAction::Rename { canvas, name } => {
             let canvas = target(app, canvas);
             rename(app, &canvas, &name, effects)
@@ -80,23 +86,23 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
     app.session.tabs = Tabs::default();
 
     let OpenedSpace {
-        folder,
+        project,
         canvases,
         active,
     } = opened;
-    let mut entries: Vec<Canvas> = canvases
-        .into_iter()
-        .map(|canvas| Canvas {
-            id: canvas.id,
-            name: canvas.name,
-            file: canvas.file,
-            state: parked(canvas.document, canvas.camera, canvas.tabs),
-        })
-        .collect();
+    let project_id = project
+        .as_ref()
+        .map_or_default(|project| project.id.clone());
+    let mut entries: Vec<Canvas> = Vec::new();
+    for canvas in canvases {
+        let entry = entry(&entries, &project_id, canvas);
+        entries.push(entry);
+    }
     let made = entries.is_empty().then(|| {
         let first = new_canvas(
             &mut app.session,
             &entries,
+            &project_id,
             DEFAULT_CANVAS_NAME.to_owned(),
             Parked::default(),
         );
@@ -109,10 +115,10 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
         .unwrap_or(0);
     let entering = mem::replace(&mut entries[index].state, CanvasState::Active);
     // The threads belong to the folder: they are read again from it.
-    let has_folder = folder.is_some();
+    let has_folder = project.is_some();
     app.threads = specular_agent::Threads::default();
     app.space = Space {
-        folder,
+        projects: project.into_iter().collect(),
         canvases: entries,
         active: index,
         switches: app.space.switches + 1,
@@ -130,6 +136,50 @@ pub(crate) fn open(app: &mut App, opened: OpenedSpace, effects: &mut Vec<Effect>
     }
 }
 
+/// A canvas read from disk, among `others`, in the project `project`. Its
+/// index's id is kept unless another canvas has it; then it is known by
+/// the id with the project's after it, and its index still names it as
+/// before.
+pub(super) fn entry(others: &[Canvas], project: &ProjectId, canvas: OpenedCanvas) -> Canvas {
+    let tab = canvas.id.as_str().to_owned();
+    let taken = |id: &CanvasId| others.iter().any(|other| other.id == *id);
+    let id = if taken(&canvas.id) {
+        CanvasId::new(format!(
+            "{tab}~{}",
+            project.as_str().get(..6).unwrap_or(project.as_str())
+        ))
+    } else {
+        canvas.id
+    };
+    Canvas {
+        id,
+        project: project.clone(),
+        tab,
+        name: canvas.name,
+        file: canvas.file,
+        state: parked(canvas.document, canvas.camera, canvas.tabs),
+    }
+}
+
+/// An empty canvas that needs no fitting.
+pub(super) fn fresh() -> Parked {
+    Parked {
+        view: CanvasView {
+            fitted: true,
+            ..CanvasView::default()
+        },
+        ..Parked::default()
+    }
+}
+
+/// Where a new canvas of the project `project` goes in the list: after its
+/// last canvas, or at the end.
+fn slot_for(space: &Space, project: &ProjectId) -> usize {
+    (space.canvases.iter())
+        .rposition(|canvas| canvas.project == *project)
+        .map_or(space.canvases.len(), |last| last + 1)
+}
+
 /// Shows the canvas `id`. Returns whether it is now the active one.
 pub(crate) fn switch(app: &mut App, id: &CanvasId, effects: &mut Vec<Effect>) -> bool {
     let Some(index) = app.space.index_of(id) else {
@@ -142,37 +192,45 @@ pub(crate) fn switch(app: &mut App, id: &CanvasId, effects: &mut Vec<Effect>) ->
     true
 }
 
-/// Adds an empty canvas at the end of the list. With no `name` it is the
-/// next `Canvas N`. A name is refused when it is empty or taken: a tab ref
-/// resolves by exact name, so a second canvas with one would make every
-/// ref to it ambiguous.
+/// Adds an empty canvas after the last one of the project `project`. With
+/// no `name` it is the next `Canvas N`. A name is refused when it is empty
+/// or taken in that project: a tab ref resolves by exact name, so a second
+/// canvas with one would make every ref to it ambiguous.
 pub(crate) fn create(
     app: &mut App,
+    project: &ProjectId,
     name: Option<&str>,
     activate_it: bool,
     effects: &mut Vec<Effect>,
 ) -> Result<CanvasId, String> {
+    if !app.space.projects.is_empty() && app.space.project(project).is_none() {
+        return Err(format!("no project has the id '{project}'"));
+    }
+    let siblings = app.space.siblings(project);
     let name = match name.map(str::trim) {
-        None => names::next_default(&app.space.canvases),
+        None => names::next_default(&siblings),
         Some("") => return Err("tab name is required".to_owned()),
-        Some(name) if names::taken(&app.space.canvases, name, None) => {
+        Some(name) if names::taken(&siblings, name, None) => {
             return Err(format!("a tab named '{name}' already exists"));
         }
         Some(name) => name.to_owned(),
     };
-    let fresh = Parked {
-        view: CanvasView {
-            fitted: true,
-            ..CanvasView::default()
-        },
-        ..Parked::default()
-    };
-    let canvas = new_canvas(&mut app.session, &app.space.canvases, name, fresh);
+    let canvas = new_canvas(
+        &mut app.session,
+        &app.space.canvases,
+        project,
+        name,
+        fresh(),
+    );
     let id = canvas.id.clone();
-    app.space.canvases.push(canvas);
+    let slot = slot_for(&app.space, project);
+    app.space.canvases.insert(slot, canvas);
+    if slot <= app.space.active {
+        app.space.active += 1;
+    }
     effects.push(Effect::WriteCanvas(id.clone()));
     if activate_it {
-        activate(app, app.space.canvases.len() - 1, effects);
+        activate(app, slot, effects);
     }
     effects.push(Effect::SaveSpaceMeta);
     Ok(id)
@@ -196,11 +254,13 @@ pub(crate) fn rename(
     if app.space.canvases[index].name == name {
         return Ok(());
     }
-    if names::taken(&app.space.canvases, name, Some(id)) {
+    let project = app.space.canvases[index].project.clone();
+    if names::taken(&app.space.siblings(&project), name, Some(id)) {
         return Err(format!("a tab named '{name}' already exists"));
     }
-    let to = canvas_file_name(name, id);
-    let clash = (app.space.canvases.iter()).any(|canvas| canvas.id != *id && canvas.file == to);
+    let to = canvas_file_name(name, &CanvasId::new(app.space.canvases[index].tab.clone()));
+    let clash =
+        (app.space.canvases_of(&project)).any(|canvas| canvas.id != *id && canvas.file == to);
     if clash {
         return Err(format!("another canvas is already kept in '{to}'"));
     }
@@ -230,11 +290,15 @@ pub(crate) fn duplicate(
     let SavedCanvas {
         document, camera, ..
     } = app.canvas_to_save(id)?;
-    let name = names::copy_of(&app.space.canvases, &app.space.canvases[index].name);
+    let project = app.space.canvases[index].project.clone();
+    let name = names::copy_of(
+        &app.space.siblings(&project),
+        &app.space.canvases[index].name,
+    );
     let CanvasState::Parked(copy) = parked(document, camera, Vec::new()) else {
         return None;
     };
-    let canvas = new_canvas(&mut app.session, &app.space.canvases, name, *copy);
+    let canvas = new_canvas(&mut app.session, &app.space.canvases, &project, name, *copy);
     let copy_id = canvas.id.clone();
     app.space.canvases.insert(index + 1, canvas);
     if index < app.space.active {
@@ -248,23 +312,23 @@ pub(crate) fn duplicate(
 
 /// Removes the canvas `id` and sends its file to the trash. Deleting the
 /// active canvas shows the next one, or the one before the last. Deleting
-/// the only canvas leaves an empty `Canvas 1` in its place, and returns
-/// `Some(true)`.
+/// the only canvas of its project leaves an empty `Canvas 1` there in its
+/// place, and returns `Some(true)`.
 pub(crate) fn delete(app: &mut App, id: &CanvasId, effects: &mut Vec<Effect>) -> Option<bool> {
     let index = app.space.index_of(id)?;
-    let only = app.space.canvases.len() == 1;
+    let project = app.space.canvases[index].project.clone();
+    let only = app.space.canvases_of(&project).count() == 1;
     if only {
-        let fresh = Parked {
-            view: CanvasView {
-                fitted: true,
-                ..CanvasView::default()
-            },
-            ..Parked::default()
-        };
         let name = DEFAULT_CANVAS_NAME.to_owned();
-        let canvas = new_canvas(&mut app.session, &app.space.canvases, name, fresh);
+        let canvas = new_canvas(
+            &mut app.session,
+            &app.space.canvases,
+            &project,
+            name,
+            fresh(),
+        );
         effects.push(Effect::WriteCanvas(canvas.id.clone()));
-        app.space.canvases.push(canvas);
+        app.space.canvases.insert(index + 1, canvas);
     }
     if index == app.space.active {
         let next = if index + 1 < app.space.canvases.len() {

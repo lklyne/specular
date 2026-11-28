@@ -1,5 +1,6 @@
 //! The settings dialog (`git show bc5253fa:src/renderer/settings`), from
-//! [`SettingsModel`]: General, Repos, Shortcuts and About.
+//! [`SettingsModel`]: General, Mods, Shortcuts and About. Repos are
+//! projects in the sidebar (ADR 0062), so they have no page here.
 //!
 //! The dialog's content is rebuilt on every frame it is drawn, so each
 //! pane is the model as it is then, and a control sends its row's action.
@@ -8,19 +9,28 @@ use gpui_kit::component::button::Button;
 use gpui_kit::component::setting::{
     SettingField, SettingGroup, SettingItem, SettingPage, Settings,
 };
-use gpui_kit::component::{Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex};
-use gpui_kit::{
-    App, FontWeight, IntoElement, ParentElement as _, SharedString, Styled as _, Window, div, px,
+use gpui_kit::component::{
+    ActiveTheme as _, Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex,
 };
+use gpui_kit::{
+    App, FontWeight, IntoElement, ParentElement as _, SharedString, StyleRefinement, Styled as _,
+    Window, div, px,
+};
+use specular_interact::mods::ModRow;
 use specular_interact::{
-    AboutRow, Event, GeneralPane, SettingChoice, SettingToggle, SettingsModel, ShortcutRow,
+    AboutRow, Action, Event, GeneralPane, SettingChoice, SettingToggle, SettingsModel, ShortcutRow,
     settings,
 };
 
 use crate::assets::ShellIcon;
 use crate::canvas;
-use crate::settings_repos::{self, AddFields, send};
 use crate::theme;
+
+/// Runs `action` and has the dialog read the model again.
+fn send(action: &Action, window: &mut Window) {
+    canvas::dispatch(Event::Action(action.clone()));
+    window.refresh();
+}
 
 fn muted() -> gpui_kit::Hsla {
     theme::tinted(theme::text_muted())
@@ -43,7 +53,7 @@ fn space(pane: &GeneralPane) -> impl IntoElement + use<> {
     let reveal = pane.space.as_ref().map(|space| space.reveal.clone());
     h_flex()
         .w_full()
-        .gap_3()
+        .gap(crate::theme::space(3.0))
         .items_center()
         .child(
             v_flex()
@@ -78,10 +88,10 @@ fn space(pane: &GeneralPane) -> impl IntoElement + use<> {
         )
 }
 
-fn toggle(toggle: &SettingToggle) -> SettingItem {
-    let (on, action) = (toggle.on, toggle.action.clone());
+/// A switch beside its setting, which sends `action` when flipped.
+fn switch(label: SharedString, detail: SharedString, on: bool, action: Action) -> SettingItem {
     SettingItem::new(
-        toggle.label,
+        label,
         SettingField::switch(
             move |_| on,
             move |_, cx| {
@@ -90,7 +100,42 @@ fn toggle(toggle: &SettingToggle) -> SettingItem {
             },
         ),
     )
-    .description(toggle.detail)
+    .description(detail)
+}
+
+fn toggle(toggle: &SettingToggle) -> SettingItem {
+    switch(
+        toggle.label.into(),
+        toggle.detail.into(),
+        toggle.on,
+        toggle.action.clone(),
+    )
+}
+
+fn mod_switch(row: &ModRow) -> SettingItem {
+    switch(
+        row.title.clone().into(),
+        row.detail.clone().into(),
+        row.on,
+        row.action.clone(),
+    )
+}
+
+fn mods(rows: &[ModRow]) -> SettingPage {
+    let group = SettingGroup::new().description(
+        "A mod turned off does not run: its tools, commands and items go, and a layout \
+         that places it shows the app's own panel there.",
+    );
+    let group = if rows.is_empty() {
+        group.item(SettingItem::render(|_, _, _| {
+            value("No mods are installed.".to_owned())
+        }))
+    } else {
+        group.items(rows.iter().map(mod_switch))
+    };
+    SettingPage::new("Mods")
+        .icon(Icon::new(ShellIcon::Blocks))
+        .group(group)
 }
 
 fn choice(choice: &SettingChoice) -> SettingItem {
@@ -156,7 +201,7 @@ fn general(pane: &GeneralPane) -> SettingPage {
 
 fn shortcut(row: &ShortcutRow) -> impl IntoElement + use<> {
     h_flex()
-        .gap_3()
+        .gap(crate::theme::space(3.0))
         .items_center()
         .py(px(3.0))
         .text_size(px(12.0))
@@ -200,26 +245,61 @@ fn about(rows: &[AboutRow]) -> SettingPage {
         .group(SettingGroup::new().items(items))
 }
 
+/// Wide enough, with [`SIDEBAR_WIDTH`], that the page is past the Kit's
+/// 480 point stacking width: each switch and choice sits on its setting's
+/// line, at the right.
+const DIALOG_WIDTH: f32 = 760.0;
+const SIDEBAR_WIDTH: f32 = 180.0;
+
 fn model() -> Option<SettingsModel> {
     canvas::with(|canvas| settings(canvas.runtime.app()))
 }
 
-/// Opens the dialog over the window.
+/// The title row's height. The dialog's close button sits 8 points in from
+/// its corner, which centres it in a row this tall.
+const TITLE_HEIGHT: f32 = 40.0;
+/// The title's inset, matching the sidebar's own, so the title, the search
+/// field and the pages' names share one left edge.
+const TITLE_INSET: f32 = 12.0;
+
+/// Opens the dialog over the window: the title, a rule the dialog's width
+/// under it, then the sidebar and the page, edge to edge.
 pub(crate) fn open(window: &mut Window, cx: &mut App) {
-    let fields = AddFields::default();
-    window.open_dialog(cx, move |dialog, _, _| {
-        let dialog = dialog.title("Settings").w(px(720.0));
+    window.open_dialog(cx, move |dialog, _, cx| {
+        let dialog = dialog.w(px(DIALOG_WIDTH)).p_0();
         let Some(model) = model() else {
-            return dialog;
+            return dialog.child(title());
         };
+        // The rule is under the title, so a page's name needs none of its
+        // own.
+        let page_header = StyleRefinement::default().border_b_0();
+        let pages = [
+            general(&model.general),
+            mods(&model.mods),
+            shortcuts(&model.shortcuts),
+            about(&model.about),
+        ]
+        .map(|page| page.header_style(&page_header));
         dialog.child(
-            div().h(px(440.0)).child(
-                Settings::new("settings")
-                    .page(general(&model.general))
-                    .page(settings_repos::page(&fields))
-                    .page(shortcuts(&model.shortcuts))
-                    .page(about(&model.about)),
-            ),
+            v_flex()
+                .child(title())
+                .child(div().h(px(1.0)).w_full().bg(cx.theme().border))
+                .child(
+                    div().h(px(440.0)).child(
+                        Settings::new("settings")
+                            .sidebar_width(px(SIDEBAR_WIDTH))
+                            .pages(pages),
+                    ),
+                ),
         )
     });
+}
+
+fn title() -> impl IntoElement {
+    h_flex()
+        .h(px(TITLE_HEIGHT))
+        .px(px(TITLE_INSET))
+        .items_center()
+        .font_weight(FontWeight::SEMIBOLD)
+        .child("Settings")
 }

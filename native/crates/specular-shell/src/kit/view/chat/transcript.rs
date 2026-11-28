@@ -120,11 +120,11 @@ fn mix(from: u32, to: u32, amount: f32) -> Hsla {
 /// looks like the field it came from.
 fn surface() -> BubbleContent {
     BubbleContent::new()
-        .rounded(px(16.0))
+        .rounded(crate::theme::corner(16.0))
         .border_color(theme::solid(theme::input_border()))
         .bg(theme::solid(theme::input()))
         .text_color(theme::solid(theme::text()))
-        .px_3()
+        .px(crate::theme::space(3.0))
         .py(px(6.0))
         .text_size(px(12.0))
         .line_height(relative(1.625))
@@ -139,8 +139,8 @@ fn thumbnails(images: &[String]) -> impl IntoElement + use<> {
             img(PathBuf::from(path))
                 .size(px(48.0))
                 .flex_shrink_0()
-                .rounded(px(6.0))
-                .border_1()
+                .rounded(crate::theme::corner(6.0))
+                .border(crate::theme::line())
                 .border_color(theme::solid(theme::zinc_300()))
                 .object_fit(ObjectFit::Cover)
         }))
@@ -297,7 +297,7 @@ impl ShellView {
             *run = Some(RunBar {
                 label: "List build folder and Leva files".to_owned(),
                 log: Vec::new(),
-                stop: Action::Chat(ChatAction::Stop),
+                stop: Action::Chat(ChatAction::Stop(None)),
             });
         }
         let avatar = active.map(|row| {
@@ -343,7 +343,7 @@ impl ShellView {
             },
         )
         // `space-y-4` between rows and `py-2.5` around them.
-        .with_row_style(StyleRefinement::default().pb_4())
+        .with_row_style(StyleRefinement::default().pb(crate::theme::space(4.0)))
         .with_list_style(StyleRefinement::default().pt(px(10.0)).pb_0())
         .jump_button(false);
         div().flex_1().min_h_0().child(scroller)

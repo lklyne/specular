@@ -90,12 +90,12 @@ impl<'a> Tree<'a> {
     /// The page `entity` nests under: the one it is anchored to, when it is
     /// in no group and that page is on the canvas.
     fn hook(app: &'a App, entity: &'a Entity) -> Option<&'a EntityId> {
-        if matches!(entity.kind, Kind::Group(_)) || is_page(entity) {
+        if matches!(entity.kind, Kind::Group(_)) || is_page(app, entity) {
             return None;
         }
         let page = &entity.anchor.as_ref()?.page_id;
         (app.document.entity(page))
-            .filter(|it| is_page(it))
+            .filter(|it| is_page(app, it))
             .map(|_| page)
     }
 
@@ -138,6 +138,7 @@ impl<'a> Tree<'a> {
                 Icon::Shape(shape.shape),
                 Vec::new(),
             ),
+            Kind::Mod(_) => (RowKind::File, Icon::Code, Vec::new()),
         };
         let trailing = match &entity.kind {
             Kind::Group(_) => Some(leaves(&children).to_string()),
@@ -145,7 +146,9 @@ impl<'a> Tree<'a> {
             Kind::File(file) if file.is_html() => {
                 Some(dimensions(entity.rect.width, entity.rect.height))
             }
-            Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+            Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => {
+                None
+            }
         };
         let item = ItemId::Entity(entity.id.clone());
         SidebarRow {
@@ -225,6 +228,7 @@ impl<'a> Tree<'a> {
             Kind::Shape(shape) => (named.or_else(|| first_line(&shape.text)))
                 .unwrap_or_else(|| shape_label(shape.shape))
                 .to_owned(),
+            Kind::Mod(item) => named.unwrap_or(&item.name).to_owned(),
         }
     }
 }

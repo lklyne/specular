@@ -105,7 +105,12 @@ pub(crate) fn gap_of(group: &Group) -> f64 {
 pub(crate) fn group_of(entity: &Entity) -> Option<&Group> {
     match &entity.kind {
         Kind::Group(group) => Some(group),
-        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_) => None,
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Drawing(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => None,
     }
 }
 

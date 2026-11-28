@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use super::CanvasError;
 use super::fields::{fill, set};
-use crate::{Color, ColorPreset, Entity, JsonMap, Kind};
+use crate::{Color, ColorPreset, Entity, JsonMap, Kind, ModFallback, ModItem};
 
 /// One JSON object being written, with the leftovers that belong in it.
 struct Object<'a> {
@@ -127,21 +127,16 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
             node.put("pageAnchor", anchor)?;
         }
         Kind::Shape(shape) => {
-            node.set("shapeKind", &shape.shape)?;
-            node.set("text", &shape.text)?;
-            put_node_color(&mut node, shape.color.as_ref())?;
-            node.put("strokeWidth", shape.stroke_width.as_ref())?;
-            node.put("borderStyle", shape.border_style.as_ref())?;
-            node.put("borderColor", shape.border_color.as_ref())?;
-            node.put("theme", shape.theme.as_ref())?;
+            write_shape(&mut node, &mut ext, shape)?;
             node.put("label", label)?;
             node.put("parentGroupId", parent)?;
             node.put("pageAnchor", anchor)?;
-            put_color_role(&mut ext, shape.color.as_ref())?;
-            ext.put("textSize", shape.text_size.as_ref())?;
-            ext.put("fillStyle", shape.fill_style.as_ref())?;
-            ext.put("textAlign", shape.text_align.as_ref())?;
-            ext.put("textVerticalAlign", shape.text_vertical_align.as_ref())?;
+        }
+        Kind::Mod(item) => {
+            write_mod(&mut node, &mut ext, item)?;
+            ext.put("pageAnchor", anchor)?;
+            ext.put("parentGroupId", parent)?;
+            ext.put("label", label)?;
         }
     }
 
@@ -152,6 +147,45 @@ pub(super) fn write_node(entity: &Entity) -> Result<JsonMap, CanvasError> {
     Ok(node.finish())
 }
 
+/// A shape's own fields, on the node and its `specular` extension.
+fn write_shape(
+    node: &mut Object<'_>,
+    ext: &mut Object<'_>,
+    shape: &crate::Shape,
+) -> Result<(), CanvasError> {
+    node.set("shapeKind", &shape.shape)?;
+    node.set("text", &shape.text)?;
+    put_node_color(node, shape.color.as_ref())?;
+    node.put("strokeWidth", shape.stroke_width.as_ref())?;
+    node.put("borderStyle", shape.border_style.as_ref())?;
+    node.put("borderColor", shape.border_color.as_ref())?;
+    node.put("theme", shape.theme.as_ref())?;
+    put_color_role(ext, shape.color.as_ref())?;
+    ext.put("textSize", shape.text_size.as_ref())?;
+    ext.put("fillStyle", shape.fill_style.as_ref())?;
+    ext.put("textAlign", shape.text_align.as_ref())?;
+    ext.put("textVerticalAlign", shape.text_vertical_align.as_ref())?;
+    let custom = shape.custom.as_ref().map(crate::CustomShape::to_json);
+    ext.put("customShape", custom.as_ref())
+}
+
+/// A mod item's fallback field, and its mod, props and snapshot under
+/// `specular`: its base type is a JSON Canvas one.
+fn write_mod(
+    node: &mut Object<'_>,
+    ext: &mut Object<'_>,
+    item: &ModItem,
+) -> Result<(), CanvasError> {
+    match &item.fallback {
+        ModFallback::Text(text) => node.set("text", text)?,
+        ModFallback::Link(url) => node.set("url", url)?,
+        ModFallback::File(file) => node.set("file", file)?,
+    }
+    ext.set("mod", &item.name)?;
+    ext.set("props", &item.props)?;
+    ext.put("snapshot", item.snapshot.as_ref())
+}
+
 const fn node_type(kind: &Kind) -> &'static str {
     match kind {
         Kind::Page(_) => "link",
@@ -160,6 +194,11 @@ const fn node_type(kind: &Kind) -> &'static str {
         Kind::Group(_) => "group",
         Kind::Drawing(_) => "drawing",
         Kind::Shape(_) => "shape",
+        Kind::Mod(item) => match item.fallback {
+            ModFallback::Text(_) => "text",
+            ModFallback::Link(_) => "link",
+            ModFallback::File(_) => "file",
+        },
     }
 }
 

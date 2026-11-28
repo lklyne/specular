@@ -32,24 +32,47 @@ while the mutation path stays singular (see [ADR 0019](../../../docs/adr/0019-ca
 | `specular snapshot -i -c -f <id>` | Capture a compact interactive-elements snapshot of a page, with refs |
 | `specular snapshot -i -s "<selector>" -f <id>` | Scope a snapshot to one section/container |
 | `specular screenshot -f <id>` | Screenshot a page |
+| `specular shot [file.png]` | Save the canvas as the window shows it, as a PNG |
 
-## Targeting a tab
+## Which canvas to write to
 
-Every verb writes to the canvas the **user is looking at** unless you say
-otherwise. Name the target instead of inheriting their focus:
+**Add to the canvas the user is looking at.** Every verb writes there unless
+you say otherwise, and that is almost always right: the user is watching it,
+and a result on another canvas is one they have to go looking for.
+
+**Do not create canvases unless the user asks for one.** Each canvas is a row
+in the user's sidebar, and canvases an agent makes on its own pile up there.
+A new topic, a comparison, a set of variants or "a clean place to work" is
+not a reason: put it on the current canvas, in a free spot
+(`specular find-placement`), grouped if it helps (`specular group`). Make one
+only when the user's words ask for it ("make a new canvas", "put this on its
+own canvas"). Write to another existing canvas only when the user names it.
 
 ```bash
 specular canvas                           # appState.activeTab + appState.tabs (ids, names)
-specular tab new "sync-roads"             # create a canvas; prints its id; does NOT switch focus
-specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
-specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
-specular add note "…" --tab <tab-id>      # write to that canvas in the background
+specular add note "…" --tab <tab-id>      # write to a canvas the user named, in the background
 specular apply --tab <tab-id> < patch.json
+specular tab switch <tab-id|tab-name>     # the only command that moves the user's view
+specular tab new "<name>"                 # ONLY when the user asked for a new canvas; prints its id; does NOT switch focus
+specular project                          # the projects in the sidebar and their canvases
+specular tab delete <tab-id|tab-name>     # remove a canvas; deleting a background one does NOT move the user
 ```
 
-`--tab` takes a tab id or an exact tab name; an ambiguous or unknown ref errors
-with the candidates rather than guessing. Snapshot the tab id from `canvas`
+`--tab` takes a tab id, an exact tab name, or `<project>/<name>`; an
+ambiguous or unknown ref errors with the candidates rather than guessing. Snapshot the tab id from `canvas`
 before a batch and confirm it after — the user can switch canvases mid-session.
+If they do, keep writing to the canvas the work started on rather than
+making a new one.
+
+**Projects.** The sidebar lists projects: folders and code repos, each with
+its canvases (`specular project` lists them; `specular canvas` names each
+tab's project). A repo keeps its canvases in `<repo>/.specular/canvases/`,
+and when the user's canvas is in a repo project your working directory is
+that repo. Canvas names are unique per project, so the same name can be in
+two projects: use the tab id or `<project>/<name>` then. If the user asks
+for a new canvas in a particular project, `specular tab new "<name>"
+--project <id|name>`. Open or close a project (`specular project open
+<folder>`, `specular project close <id|name>`) only when the user asks.
 
 Not every verb takes it. `canvas` reads, `apply`, and `add` (including the
 placement lookups `add` runs) are tab-scoped; the rest — `unlink`, `ungroup`,
@@ -103,6 +126,13 @@ and reflows its children; it no-ops on unmanaged groups.
 | `specular find-placement` | Find open canvas space for new entities |
 | `specular breakpoints <url>` | Lay a URL out across device breakpoints |
 
+## Run any app command by name
+
+| Command | Purpose |
+|---|---|
+| `specular commands` | List every command the app runs by name: its `name`, `args` help, `about`, and whether it is `enabled` now |
+| `specular run <name> [json-args]` | Run one, as its menu item or key would, as one undo step — e.g. `specular run edit.undo`, `specular run tool.set '{"tool":"draw"}'`, `specular run control.press '{"id":"tool.sticky"}'` |
+
 ## Comment
 
 Annotations are a single concept (a comment thread) discriminated by **anchor
@@ -141,7 +171,7 @@ part of the region, so a selection larger than the window comes back with
 canvas-background fill where the offscreen part was.
 
 **Results belong on the canvas.** The canvas is the surface the user works
-on, so anything you create while acting on a comment — a new route, a
+on (the one they have open, not a new one), so anything you create while acting on a comment — a new route, a
 duplicated prototype, a variant — is invisible until it is placed there
 (`specular find-placement` for a free spot, then `specular add page <url>`
 or `specular add file <path> --at x,y`). Pages already on the canvas reload
@@ -289,6 +319,58 @@ off against the rest of the workspace.
 Drop a `.html` file onto the canvas to render it inline (charts, mockups,
 generated visualizations): `specular add file /abs/path/viz.html`. Rendered
 display-only; edit the file to update.
+
+## Widget pages: the page bridge
+
+An HTML file inside the open space folder gets `window.specular`, so a
+canvas widget is one file you write and place with `specular add file`.
+Only a `file://` page inside the space folder has it: a web page, a file
+elsewhere on disk, or the same page after it navigates away never does.
+
+```js
+specular.state(key)              // Promise: the keyed state value (`specular state` lists the keys)
+specular.run(name, args)         // Promise: runs a registry command (`specular commands`), one undo step; rejects with why
+specular.commands()              // Promise: every command, with `name`, `args`, `about`, `enabled`
+specular.subscribe(key, cb)      // cb(value) now and on every change, pushed; returns an unsubscribe function
+```
+
+The bridge can arrive after the page's first script, so start on it or on
+its event:
+
+```html
+<script>
+  const start = () => {
+    specular.subscribe('panels/toolbar', (bar) => {
+      const tool = bar.sections.flatMap((s) => s.tools).find((t) => t.active);
+      document.title = tool ? tool.label : 'none';
+    });
+    button.onclick = () =>
+      specular.run('item.add', { kind: 'sticky', x: 560, y: 100, text: 'Hello' });
+  };
+  if (window.specular) start(); else addEventListener('specular-ready', start, { once: true });
+</script>
+```
+
+`item.add {kind: sticky|text|shape, x, y, text?}` places an item at a canvas
+point. A working sample is `native/fixtures/bridge/space/widget.html`.
+
+## Mods
+
+To build a mod (a panel, a canvas item type, a tool, or commands for the
+palette, keys and dock), use the `specular-mods` skill or run `specular --skill`. To drive mods that
+exist: `specular run tool.set '{"tool": "watercolor/brush"}'` arms a mod tool,
+`specular run item.add '{"kind": "mod", "mod": "feed", "props": {...}}'`
+places a mod item, `specular run item.set '{"id": "...", "props": {...}}'`
+changes one, and `specular run <mod>/<command>` runs a mod's own command.
+
+## Your cursor
+
+The person sees your work as one cursor on the canvas: it goes to what each
+command changes, sweeps over what a read takes in, and reads "thinking"
+between commands. The person can see you in the agents list beside Share
+and follow your cursor. Set `SPECULAR_CLIENT_NAME` (for example
+`export SPECULAR_CLIENT_NAME="Claude: checkout redesign"`) to name yourself
+there; otherwise you are "Agent N".
 
 ## Passing URLs
 

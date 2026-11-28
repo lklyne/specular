@@ -1,0 +1,15 @@
+{
+  "api": "1.2",
+  "title": "Image feed",
+  "items": { "size": [360, 440] },
+  "palette": [
+    {
+      "title": "Add an image feed",
+      "run": "item.add",
+      "args": { "kind": "mod", "mod": "feed", "props": { "title": "Image feed", "urls": [] } }
+    }
+  ],
+  "commands": [
+    { "name": "shuffle", "title": "Shuffle the image feed", "icon": "reload", "key": "alt+shift+f", "dock": true }
+  ]
+}

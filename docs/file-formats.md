@@ -35,6 +35,28 @@ metadata (`workspace-meta.json`) lives in a
 `.specular/` subdirectory of the space, with a read-side fallback to a meta
 file at the space's root for spaces written before that convention existed.
 
+### Projects
+
+A window can have several projects open beside the space
+([ADR 0062](adr/0062-sidebar-lists-projects.md)). Each keeps its canvases
+the way a space does, in its *canvas folder*: the folder itself for a plain
+folder, and `.specular/canvases/` inside a git repo that has no canvases at
+its top. So a repo's canvases, their `assets/` and their own
+`.specular/workspace-meta.json` and `threads/` are all under
+`<repo>/.specular/canvases/`, and the repo's tree is otherwise untouched.
+
+Whether a repo's canvases go into git is chosen per project. The choice is
+written as `<repo>/.specular/.gitignore`: `commit` ignores only
+`canvases/.specular/threads/` (agent transcripts), `ignore` is `*`. Nothing
+is written before the person chooses.
+
+The preferences file keeps the projects: `spacePath` is the first,
+`projects` the folders open beside it in the sidebar's order, `projectGit`
+each repo's choice by folder, and `projectsFromRepos` that the connected
+repos (`repos.json`) were opened as projects once. Sites bound to a
+project stay in `repos.json`, keyed by its folder, so the Electron app
+reads the same bindings.
+
 ## .canvas (JSON Canvas v1.0)
 
 The primary data format. Follows the JSON Canvas specification:
@@ -149,6 +171,31 @@ Missing `fillStyle` means `solid`; missing text alignment means
 `center`/`middle`. This preserves existing files without migration. JSON Canvas
 readers that do not support shapes or these optional fields can ignore them,
 while the file stays valid, transparent JSON.
+
+#### Mod items
+
+A mod item ([ADR 0057](./adr/0057-mod-items-and-tools.md)) is a plain JSON
+Canvas node, a `text` node with its mod's name, or a `link` or `file` node when
+it wraps a URL or a file, so other tools show something. Its `specular` fields
+name the mod, hold its props, and keep the display list it last drew:
+
+```json
+{
+  "id": "feed1", "type": "text", "text": "feed",
+  "x": 40, "y": 40, "width": 360, "height": 440,
+  "specular": {
+    "mod": "feed",
+    "props": { "title": "Refs", "urls": ["refs/a.png"] },
+    "snapshot": [{ "type": "rect", "x": 0, "y": 0, "width": 360, "height": 440, "fill": "#ffffff" }]
+  }
+}
+```
+
+The canvas's top-level `specular.mods` lists the mods its items use, written
+from the items on every save: `[{ "name": "feed", "api": "1.1", "from":
+"mods/feed" }]`. `from` is the copy of the mod in the space folder. Reading the
+list runs nothing; the app offers to install a missing mod, and until then the
+item shows its snapshot.
 
 ### Edges
 

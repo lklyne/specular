@@ -32,7 +32,7 @@ snapshot 03-scrolled.png
 key escape
 # In-place navigation.
 select p-example
-act page-reload
+run page.reload
 wait 1000
 expect entity p-example text https://example.com/
 undo-to-start

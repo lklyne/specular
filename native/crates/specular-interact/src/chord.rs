@@ -15,6 +15,13 @@ pub struct Chord {
     pub alt: bool,
 }
 
+/// A chord is written as macOS writes it, `⇧⌘Z`.
+impl serde::Serialize for Chord {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.text())
+    }
+}
+
 impl Chord {
     /// The chord as macOS writes it: `⇧⌘Z`.
     pub fn text(self) -> String {
@@ -81,6 +88,28 @@ impl Chord {
         Self { alt: true, ..self }
     }
 
+    /// The chord a mod or `keys.json` writes, such as `cmd+shift+u`,
+    /// `alt+1` or `shift+tab`: modifiers (`cmd`, `ctrl`, `shift`, `alt`,
+    /// `option`) and one character or a key's name, joined by `+`. `None`
+    /// for anything else.
+    pub fn parse(text: &str) -> Option<Self> {
+        let (modifiers, key) = text.rsplit_once('+').unwrap_or(("", text));
+        let mut chord = Self::key(named_key(key).or_else(|| {
+            let mut characters = key.chars();
+            let character = characters.next()?.to_lowercase().next()?;
+            characters.next().is_none().then_some(Key::Char(character))
+        })?);
+        for modifier in modifiers.split('+').filter(|word| !word.is_empty()) {
+            chord = match modifier.to_ascii_lowercase().as_str() {
+                "cmd" | "ctrl" | "meta" => chord.cmd(),
+                "shift" => chord.shift(),
+                "alt" | "option" => chord.alt(),
+                _ => return None,
+            };
+        }
+        Some(chord)
+    }
+
     /// The chord `input` is, whether it is a press or a release.
     ///
     /// Escape is Escape whatever is held with it, so it cancels a drag that
@@ -96,5 +125,44 @@ impl Chord {
             shift: modifiers.shift,
             alt: modifiers.alt,
         }
+    }
+}
+
+/// A key by the name `keys.json` writes it.
+fn named_key(name: &str) -> Option<Key> {
+    Some(match name.to_ascii_lowercase().as_str() {
+        "escape" | "esc" => Key::Escape,
+        "enter" | "return" => Key::Enter,
+        "tab" => Key::Tab,
+        "backspace" => Key::Backspace,
+        "delete" => Key::Delete,
+        "space" => Key::Space,
+        "left" => Key::ArrowLeft,
+        "right" => Key::ArrowRight,
+        "up" => Key::ArrowUp,
+        "down" => Key::ArrowDown,
+        "home" => Key::Home,
+        "end" => Key::End,
+        "pageup" => Key::PageUp,
+        "pagedown" => Key::PageDown,
+        _ => return None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Chord;
+    use crate::Key;
+
+    #[test]
+    fn a_mod_writes_a_chord_as_words() {
+        assert_eq!(
+            Chord::parse("cmd+shift+U"),
+            Some(Chord::char('u').cmd().shift())
+        );
+        assert_eq!(Chord::parse("k"), Some(Chord::char('k')));
+        assert_eq!(Chord::parse("hyper+k"), None);
+        assert_eq!(Chord::parse("cmd+up"), Some(Chord::key(Key::ArrowUp).cmd()));
+        assert_eq!(Chord::parse("cmd+upper"), None);
     }
 }

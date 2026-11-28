@@ -41,8 +41,11 @@ pub(crate) fn press(
         Hit::PageContent { page, .. } if app.session.focus.page() == Some(&page) => return false,
         Hit::PageContent { page, .. } => press_page(app, page, world, input, click_count),
         Hit::Handle { owner, handle } => {
-            app.session.gesture =
-                resize_drag::begin(app, owner, handle, world).map(Gesture::Resize);
+            let drag = resize_drag::begin(app, owner, handle, world);
+            if let Some(drag) = &drag {
+                resize_drag::pin_frames(app, drag);
+            }
+            app.session.gesture = drag.map(Gesture::Resize);
         }
         Hit::Layout(handle) => {
             app.session.gesture = layout::drag::begin(app, &handle, world).map(Gesture::Line);

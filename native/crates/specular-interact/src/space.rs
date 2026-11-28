@@ -11,6 +11,7 @@
 mod background;
 mod names;
 mod ops;
+mod project;
 mod tab_ref;
 
 use specular_core::Camera;
@@ -19,7 +20,10 @@ use specular_doc::Document;
 pub(crate) use self::background::in_background;
 pub(crate) use self::names::DEFAULT_CANVAS_NAME;
 pub use self::names::{canvas_file_name, legacy_canvas_file_name};
-pub(crate) use self::ops::{act, create, file_changed, open};
+pub(crate) use self::ops::{
+    act, add_project, create, file_changed, open, project_act, remove_project,
+};
+pub use self::project::{GitChoice, Project, ProjectId, folder_label};
 pub use self::tab_ref::TabRefError;
 pub(crate) use self::tab_ref::resolve_tab_ref;
 use crate::saved::{self, LoadedFits};
@@ -47,13 +51,14 @@ impl std::fmt::Display for CanvasId {
     }
 }
 
-/// The folder of canvases the app has open, and which one is active. There
-/// is always at least one canvas.
+/// The projects the app has open, every canvas in them, and which canvas
+/// is active. There is always at least one canvas. The canvases of one
+/// project are next to each other, in the order its index lists them.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Space {
-    /// The folder, or `None` for a canvas that is in no folder: a demo, a
-    /// test, a benchmark.
-    folder: Option<String>,
+    /// The projects, in the sidebar's order. None for a canvas that is in
+    /// no folder: a demo, a test, a benchmark.
+    projects: Vec<Project>,
     canvases: Vec<Canvas>,
     /// Index of the active canvas.
     active: usize,
@@ -66,9 +71,14 @@ pub struct Space {
 pub struct Canvas {
     /// Its id.
     pub id: CanvasId,
-    /// The name the user gave it. Unique in the space once trimmed.
+    /// The project it is in. Empty when the space has no project.
+    pub project: ProjectId,
+    /// The id its project's index keeps for it. The same as `id` unless a
+    /// canvas of another project had that id first.
+    pub tab: String,
+    /// The name the user gave it. Unique in its project once trimmed.
     pub name: String,
-    /// Its file's name inside the space folder.
+    /// Its file's name inside its project's canvas folder.
     pub file: String,
     state: CanvasState,
 }
@@ -103,11 +113,11 @@ pub(crate) struct CanvasView {
     pub(crate) fitted: bool,
 }
 
-/// A space as the shell read it from disk.
+/// A project as the shell read it from disk, or a canvas in no folder.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OpenedSpace {
-    /// The space folder.
-    pub folder: Option<String>,
+    /// The project, or `None` for canvases in no folder.
+    pub project: Option<Project>,
     /// Every canvas in it, in the order the space lists them. With none,
     /// an empty first canvas is made.
     pub canvases: Vec<OpenedCanvas>,
@@ -123,7 +133,7 @@ pub struct OpenedCanvas {
     pub id: CanvasId,
     /// Its name.
     pub name: String,
-    /// Its file's name inside the space folder.
+    /// Its file's name inside the project's canvas folder.
     pub file: String,
     /// What the file holds.
     pub document: Document,
@@ -148,9 +158,11 @@ pub struct SavedCanvas {
 impl Default for Space {
     fn default() -> Self {
         Self {
-            folder: None,
+            projects: Vec::new(),
             canvases: vec![Canvas {
                 id: CanvasId::new("tab_1"),
+                project: ProjectId::default(),
+                tab: "tab_1".to_owned(),
                 name: DEFAULT_CANVAS_NAME.to_owned(),
                 file: format!("{DEFAULT_CANVAS_NAME}.canvas"),
                 state: CanvasState::Active,
@@ -162,9 +174,64 @@ impl Default for Space {
 }
 
 impl Space {
-    /// The space folder, if the canvases are in one.
+    /// The canvas folder of the active canvas's project: where its
+    /// relative file paths start, its assets go and its threads are kept.
     pub(crate) fn folder(&self) -> Option<&str> {
-        self.folder.as_deref()
+        self.active_project()
+            .map(|project| project.canvases.as_str())
+    }
+
+    /// Every project, in the sidebar's order.
+    pub fn projects(&self) -> &[Project] {
+        &self.projects
+    }
+
+    /// The project `id` names.
+    pub fn project(&self, id: &ProjectId) -> Option<&Project> {
+        self.projects.iter().find(|project| project.id == *id)
+    }
+
+    /// The project of the canvas the window shows.
+    pub fn active_project(&self) -> Option<&Project> {
+        self.project(&self.active().project)
+    }
+
+    /// The canvases of the project `id`, in its order.
+    pub fn canvases_of<'a>(&'a self, id: &'a ProjectId) -> impl Iterator<Item = &'a Canvas> {
+        self.canvases
+            .iter()
+            .filter(move |canvas| canvas.project == *id)
+    }
+
+    /// Where the canvas `id`'s file is: its project's canvas folder and
+    /// its file name. `None` for a canvas in no folder.
+    pub fn canvas_path(&self, id: &CanvasId) -> Option<String> {
+        let canvas = self.canvas(id)?;
+        let project = self.project(&canvas.project)?;
+        Some(format!(
+            "{}/{}",
+            project.canvases.trim_end_matches('/'),
+            canvas.file
+        ))
+    }
+
+    /// The canvases of the project `id`, to name a new one among.
+    pub(crate) fn siblings(&self, id: &ProjectId) -> Vec<&Canvas> {
+        (self.canvases.iter())
+            .filter(|canvas| canvas.project == *id)
+            .collect()
+    }
+
+    /// The project `wanted` names: its id, its label, or its folder.
+    pub fn find_project(&self, wanted: &str) -> Option<&Project> {
+        let wanted = wanted.trim();
+        (self.projects.iter()).find(|project| {
+            project.id.as_str() == wanted || project.label == wanted || project.folder == wanted
+        })
+    }
+
+    pub(crate) fn project_mut(&mut self, id: &ProjectId) -> Option<&mut Project> {
+        self.projects.iter_mut().find(|project| project.id == *id)
     }
 
     /// Every canvas, in the space's order.
@@ -186,7 +253,7 @@ impl Space {
     /// The canvas a caller outside the app named with `tab_ref`: an id, or
     /// an exact name.
     pub fn resolve(&self, tab_ref: &str) -> Result<&Canvas, TabRefError> {
-        resolve_tab_ref(&self.canvases, tab_ref)
+        resolve_tab_ref(&self.canvases, &self.projects, tab_ref)
     }
 
     /// Counts the times another canvas became the active one, so a caller
@@ -286,9 +353,13 @@ impl App {
         app.session.viewport = self.session.viewport;
         app.session.now_ms = self.session.now_ms;
         app.space = Space {
-            folder: self.space.folder.clone(),
+            projects: (self.space.project(&canvas.project).cloned())
+                .into_iter()
+                .collect(),
             canvases: vec![Canvas {
                 id: canvas.id.clone(),
+                project: canvas.project.clone(),
+                tab: canvas.tab.clone(),
                 name: canvas.name.clone(),
                 file: canvas.file.clone(),
                 state: CanvasState::Active,

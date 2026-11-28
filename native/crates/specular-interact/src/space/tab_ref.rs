@@ -1,8 +1,9 @@
 //! The tab ref resolver: what a caller outside the app typed to name a
-//! canvas, an id or an exact name. One resolver, so `tab switch`,
+//! canvas, an id, an exact name, or `<project>/<name>` when the name is in
+//! more than one project. One resolver, so `tab switch`,
 //! `tab delete` and `--tab` agree on what a ref means and fail alike.
 
-use super::Canvas;
+use super::{Canvas, Project};
 
 /// Why a tab ref named no canvas. The text is what the caller is told.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -28,12 +29,13 @@ pub enum TabRefError {
     },
 }
 
-/// The canvas `tab_ref` names: an exact id first, then an exact name, both
-/// once trimmed. It never guesses: an ambiguous name lists the ids that
+/// The canvas `tab_ref` names: an exact id first, then an exact name, then
+/// `<project>/<name>` with the project's label or id, all once trimmed. It never guesses: an ambiguous name lists the ids that
 /// have it and an unknown ref lists every canvas, so a caller can retry
 /// without asking again.
 pub(crate) fn resolve_tab_ref<'a>(
     canvases: &'a [Canvas],
+    projects: &[Project],
     tab_ref: &str,
 ) -> Result<&'a Canvas, TabRefError> {
     let wanted = tab_ref.trim();
@@ -46,6 +48,18 @@ pub(crate) fn resolve_tab_ref<'a>(
     let by_name: Vec<&Canvas> = (canvases.iter())
         .filter(|canvas| canvas.name.trim() == wanted)
         .collect();
+    let in_project = || {
+        let (project, name) = wanted.split_once('/')?;
+        let project = (projects.iter())
+            .find(|each| each.label == project.trim() || each.id.as_str() == project.trim())?;
+        (canvases.iter())
+            .find(|canvas| canvas.project == project.id && canvas.name.trim() == name.trim())
+    };
+    if by_name.is_empty()
+        && let Some(found) = in_project()
+    {
+        return Ok(found);
+    }
     match by_name.as_slice() {
         [only] => Ok(only),
         [] => Err(TabRefError::Unknown {

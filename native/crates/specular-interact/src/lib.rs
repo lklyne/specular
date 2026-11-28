@@ -21,6 +21,7 @@
 //! gesture that creates an entity works the same way: the entity is in the
 //! document while it is dragged out, and [`App::creating`] names it.
 
+mod add_item;
 mod anchor;
 mod anchors;
 mod api;
@@ -29,12 +30,15 @@ mod arrange;
 mod asset;
 mod attach;
 mod bindings;
+mod bridge;
 mod camera;
 mod caps;
 mod chat;
 mod chord;
+pub mod chrome;
 mod clipboard;
 mod clone;
+mod commands;
 mod comment;
 mod cursor;
 mod device;
@@ -68,8 +72,12 @@ mod live;
 mod mark;
 mod marquee;
 mod menu;
+pub mod mods;
 mod move_drag;
+mod note_tasks;
 mod notes;
+mod notices;
+mod overlays;
 mod page_input;
 mod page_state;
 mod pages;
@@ -99,6 +107,7 @@ mod sidebar;
 mod space;
 mod space_file;
 mod stack_order;
+mod state;
 mod strokes;
 mod sync;
 mod theme;
@@ -112,20 +121,32 @@ mod viewport;
 mod zoom;
 mod zoom_settle;
 
+pub use add_item::{NewItem, NewKind};
 pub use anchors::Anchor;
 pub use api::{ApiCall, ApiOutcome, ApiRun};
-pub use app::{App, Focus, Selection, Session};
+pub use app::{App, Focus, FramePin, Selection, Session};
 pub use arrange::{ArrangeMode, arrange_command, place_command};
 pub use asset::AssetBytes;
 pub(crate) use bindings::page_edit;
-pub use bindings::{BINDINGS, Binding, Context, SHELL_KEYS, ShellCommand, kept_from_page};
+pub use bindings::{
+    BINDINGS, Binding, Context, KeyRow, KeySection, Keymap, SHELL_KEYS, ShellCommand,
+    kept_from_page,
+};
+pub use bridge::bridge_allowed;
 pub use chat::{
     ArtifactCard, AutoChip, Bubble, ChatAction, ChatModel, ChatView, Composer, DraftChip,
-    DraftKind, FixTarget, ImageUpload, ModelChip, ModelOption, OpenComments, PillChip, PillKind,
-    QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
+    DraftKind, FixTarget, HeaderAction, ImageUpload, ModelChip, ModelOption, OpenComments,
+    PillChip, PillKind, QueuedChip, RunBar, ThreadRow, Transcript, chat, fixable,
 };
 pub use chord::Chord;
+pub use chrome::{
+    Border, Content, Frame, Gate, HiddenWord, Insets, Layout, LayoutAction, LayoutError,
+    LayoutFile, LayoutsRead, Look, Material, Node, NodeKind, Overlay, Padding, Placed, Region,
+    RegionNode, Regions, Resolved, SHIPPED, SHIPPED_THEMES, SIDEBAR_WIDTH, Shown, Size,
+    TOOLS_DOCK_WIDTH, ThemeChoice, ThemeFile, Toggles, TrafficLights, gate, place, solve,
+};
 pub use clipboard::{ClipboardContent, ClipboardImage, Paste};
+pub use commands::{CommandSpec, Run, RunError, command, commands, run_named};
 pub use comment::{
     CommentDrag, CommentMark, FOCUS_RING_OUTSET, FOCUS_RING_STROKE, MarkShape, PILL_HEIGHT,
     PageGrab, PageRegion, element_on_canvas, left_its_page, page_clip, region_annotation,
@@ -142,7 +163,9 @@ pub use edit::{
     TextMeasure, TextSelectDrag, TextSpec, source_rows,
 };
 pub use effect::Effect;
-pub use event::{Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, WheelInput};
+pub use event::{
+    Action, CanvasAction, Event, Key, KeyInput, PageNotice, PointerInput, ProjectAction, WheelInput,
+};
 pub use first_run::{OnboardingModel, SpaceAction, SpaceAsk, SpaceChoice, onboarding};
 pub use geometry::{ScreenRect, to_canvas_rect};
 pub use gesture::Gesture;
@@ -163,7 +186,9 @@ pub use marquee::MarqueeMode;
 pub(crate) use menu::binding_of;
 pub use menu::{Menu, MenuEntry, MenuItem, menus};
 pub use move_drag::{CopyPreview, MoveDrag};
-pub use notes::{NoteNotice, NoteState, is_note_file, note_file_name};
+pub use notes::{NoteLayout, NoteNotice, NoteState, TickBox, is_note_file, note_file_name};
+pub use notices::{AppNotice, NoticeAction, notices};
+pub use overlays::{OverlayAction, OverlayKind, OverlaySpec, Overlays};
 pub use page_state::{PageState, ScreenFit};
 pub use palette::{PaletteItem, PaletteMatch, PaletteRun, palette, search};
 pub use panel::PanelUi;
@@ -177,9 +202,9 @@ pub use panel::{
 pub use physical_key::{PhysicalKey, mac_key_input};
 pub use place::{PlaceDrag, PlacePreview};
 pub use placement::PagePlacement;
-pub use presence::{AgentAct, AgentCursor};
+pub use presence::{AGENT_COLORS, AgentAct, AgentBadge, AgentCursor, agent_color};
 pub use property::{Orientation, PageStep, Property};
-pub use repos::{BoundOriginRow, RepoAction, RepoRow, ReposPane, repos_pane};
+pub use repos::RepoAction;
 pub use resize_drag::ResizeDrag;
 pub use safe_area::within as within_safe_area;
 pub use scope::SelectionScope;
@@ -189,19 +214,19 @@ pub(crate) use scroll_follow::{
 };
 pub use settings::{
     AboutRow, AppSettings, GeneralPane, HiddenCursors, SettingAction, SettingChoice, SettingOption,
-    SettingToggle, SettingsModel, ShortcutRow, SpaceRow, TOOLS_DOCK_WIDTH, ToolsPlace, settings,
+    SettingToggle, SettingsModel, ShortcutRow, SpaceRow, ToolsPlace, settings,
 };
 pub use share_button::{LinkScope, ShareAction, ShareLinks};
 pub use shared::ShareEvent;
 pub use showing::turn::Turning;
 pub use showing::{Lens, SavedTab, Showing};
 pub use sidebar::{
-    CanvasRow, RowKind, RowTarget, SIDEBAR_WIDTH, SectionHead, SidebarAction, SidebarModel,
-    SidebarRow, SidebarSection, SidebarView, sidebar,
+    CanvasRow, OriginRow, ProjectSection, RowKind, RowTarget, SectionHead, SidebarAction,
+    SidebarModel, SidebarRow, SidebarSection, SidebarView, sidebar,
 };
 pub use space::{
-    Canvas, CanvasId, OpenedCanvas, OpenedSpace, SavedCanvas, Space, TabRefError, canvas_file_name,
-    legacy_canvas_file_name,
+    Canvas, CanvasId, GitChoice, OpenedCanvas, OpenedSpace, Project, ProjectId, SavedCanvas, Space,
+    TabRefError, canvas_file_name, folder_label, legacy_canvas_file_name,
 };
 pub use space_file::{file_url_path, resolve_file};
 pub use specular_agent::{
@@ -211,6 +236,10 @@ pub use specular_agent::{
     WriteTarget, origin_of,
 };
 pub use specular_core::Cursor;
+pub use state::{
+    Revisions, STATE_KEYS, THREAD_KEY, is_state_key, publish as publish_state, publish_live, state,
+    state_key,
+};
 pub(crate) use theme::ThemeState;
 pub use theme::{Appearance, Theme};
 pub use time::iso8601;

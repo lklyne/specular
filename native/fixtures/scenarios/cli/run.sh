@@ -20,7 +20,7 @@ native="$(cd "$here/../../.." && pwd)"
 target="${CARGO_TARGET_DIR:-$native/target}/debug"
 out="${OUT:-$native/runs/cli}"
 if [[ -z "${APP:-}" || -z "${CLI:-}" ]]; then
-  (cd "$native" && cargo build -q -p specular-cli -p specular-shell) || exit 2
+  (cd "$native" && cargo build -q -p specular-cli -p specular-shell -p specular-mod-check) || exit 2
 fi
 app="${APP:-$target/specular}"
 cli="${CLI:-$target/specular-cli}"

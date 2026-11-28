@@ -40,15 +40,22 @@ pub fn chat(app: &App) -> ChatModel {
         toggle: act(ChatAction::Toggle),
         title: active.map_or_else(|| "Threads".to_owned(), |thread| thread.title.clone()),
         threads,
-        new_thread: act(ChatAction::NewThread),
+        new_thread: act(ChatAction::NewThread {
+            id: None,
+            open: true,
+        }),
         back: active.map(|_| act(ChatAction::Back)),
         close: active.map(|thread| act(ChatAction::CloseThread(Some(thread.id.clone())))),
+        actions: active.map_or_else(Vec::new, |thread| {
+            crate::mods::chat_buttons(app, thread.id.as_str())
+        }),
         transcript: active.map(|thread| transcript(app, thread)),
         composer: composer(app, active),
     }
 }
 
-fn transcript(app: &App, thread: &Thread) -> Transcript {
+/// The conversation of `thread`, open or not.
+pub(crate) fn transcript(app: &App, thread: &Thread) -> Transcript {
     let run = app.threads.run(&thread.id);
     let running = app.threads.is_running(&thread.id);
     let messages: Vec<Bubble> = (thread.messages.iter())
@@ -64,7 +71,7 @@ fn transcript(app: &App, thread: &Thread) -> Transcript {
     let bar = run.filter(|_| running).map(|run| RunBar {
         label: run.current_label().to_owned(),
         log: run.events.iter().map(|event| event.text.clone()).collect(),
-        stop: Action::Chat(ChatAction::Stop),
+        stop: Action::Chat(ChatAction::Stop(Some(thread.id.clone()))),
     });
     let error = run.and_then(|run| match &run.state {
         RunState::Failed(error) => Some(error.clone()),
@@ -135,6 +142,7 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
     let target = prompt::write_target(app, &live);
     let folder = match &target {
         WriteTarget::Repo { repo_path, .. } => Some(repo_path.as_str()),
+        WriteTarget::Project { folder } => Some(folder.as_str()),
         WriteTarget::Space => app.space.folder(),
     };
     Composer {
@@ -155,13 +163,15 @@ fn composer(app: &App, active: Option<&Thread>) -> Composer {
     }
 }
 
-fn model_chip(app: &App) -> ModelChip {
+/// The model chip: the model runs use, and the others.
+pub(crate) fn model_chip(app: &App) -> ModelChip {
     let models = &app.models;
     ModelChip {
         label: models.chosen_name().to_owned(),
         options: (models.list().iter())
             .map(|model| ModelOption {
                 name: model.name.clone(),
+                value: model.value.clone(),
                 description: model.description.clone(),
                 chosen: model.value == models.chosen(),
                 choose: Action::Chat(ChatAction::SetModel(model.value.clone())),
@@ -186,7 +196,8 @@ fn auto_chip(app: &App, target: &WriteTarget) -> Option<AutoChip> {
     })
 }
 
-fn queued_chip(message: &Message) -> QueuedChip {
+/// A queued message as its chip shows it.
+pub(crate) fn queued_chip(message: &Message) -> QueuedChip {
     let text = message.text.trim();
     QueuedChip {
         text: if text.is_empty() {

@@ -8,9 +8,7 @@ use std::collections::HashSet;
 
 use specular_doc::EntityId;
 
-/// The width the sidebar covers when it is shown: `LEFT_SIDEBAR_WIDTH` in
-/// `runtime-constants.ts`.
-pub const SIDEBAR_WIDTH: f32 = 256.0;
+use crate::ProjectId;
 
 /// The three folds of the sidebar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -24,7 +22,7 @@ pub enum SidebarSection {
 }
 
 /// A change to the sidebar's own state.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SidebarAction {
     /// Show it, or hide it.
     Toggle,
@@ -38,15 +36,31 @@ pub enum SidebarAction {
         /// The group or page.
         entity: EntityId,
     },
+    /// Fold a project's canvases away, or show them.
+    Project(ProjectId),
+    /// Show a project's details under its head (its folder, its git
+    /// choice, the sites bound to it), or hide them.
+    Details(ProjectId),
+    /// Make it this wide, within its limits: its right edge dragged.
+    Resize(f32),
 }
 
+/// The narrowest the sidebar is dragged to.
+pub(crate) const SIDEBAR_MIN_WIDTH: f32 = 200.0;
+/// The widest the sidebar is dragged to.
+pub(crate) const SIDEBAR_MAX_WIDTH: f32 = 520.0;
+
 /// The sidebar's state.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct SidebarView {
     shown: bool,
     folded: HashSet<SidebarSection>,
     /// Rows whose state is the opposite of what their kind starts as.
     flipped: HashSet<(SidebarSection, EntityId)>,
+    folded_projects: HashSet<ProjectId>,
+    details: Option<ProjectId>,
+    /// The width it was dragged to, or none for the layout's.
+    width: Option<f32>,
 }
 
 impl SidebarView {
@@ -55,14 +69,24 @@ impl SidebarView {
         self.shown
     }
 
-    /// How much of the canvas viewport's left edge the sidebar covers.
-    pub(crate) fn covered_width(&self) -> f32 {
-        if self.shown { SIDEBAR_WIDTH } else { 0.0 }
+    /// The width it was dragged to, or `None` while it is the layout's.
+    pub fn width(&self) -> Option<f32> {
+        self.width
     }
 
     /// Whether `section` is folded away.
     pub(crate) fn is_folded(&self, section: SidebarSection) -> bool {
         self.folded.contains(&section)
+    }
+
+    /// Whether the project `id`'s canvases are folded away.
+    pub(crate) fn is_project_folded(&self, id: &ProjectId) -> bool {
+        self.folded_projects.contains(id)
+    }
+
+    /// Whether the project `id`'s details are shown.
+    pub(crate) fn shows_details(&self, id: &ProjectId) -> bool {
+        self.details.as_ref() == Some(id)
     }
 
     /// Whether the row for `entity` in `section` is open. A page starts
@@ -80,10 +104,27 @@ impl SidebarView {
     pub(crate) fn apply(&mut self, action: SidebarAction) {
         match action {
             SidebarAction::Toggle => self.shown = !self.shown,
+            SidebarAction::Resize(width) => {
+                if width.is_finite() {
+                    self.width = Some(width.clamp(SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH));
+                }
+            }
             SidebarAction::Section(section) => {
                 if !self.folded.remove(&section) {
                     self.folded.insert(section);
                 }
+            }
+            SidebarAction::Project(id) => {
+                if !self.folded_projects.remove(&id) {
+                    self.folded_projects.insert(id);
+                }
+            }
+            SidebarAction::Details(id) => {
+                self.details = if self.details.as_ref() == Some(&id) {
+                    None
+                } else {
+                    Some(id)
+                };
             }
             SidebarAction::Row { section, entity } => {
                 let key = (section, entity);

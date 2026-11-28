@@ -2,10 +2,10 @@
 //!
 //! `specular-agent` holds the model ([`Repos`](specular_agent::Repos)) in the
 //! shape of the Electron app's `repos.json`. This module owns it on the
-//! [`App`], changes it through [`RepoAction`], and reads it as the settings
-//! dialog's Repos pane.
+//! [`App`] and changes it through [`RepoAction`]. The sidebar shows each
+//! repo's bindings on its project (ADR 0062).
 
-use crate::{Action, App, Effect};
+use crate::{App, Effect};
 
 /// A change to the connected repos.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,74 +42,10 @@ pub enum RepoAction {
     Disconnect(String),
 }
 
-/// The settings dialog's Repos pane (`ReposPane.tsx`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct ReposPane {
-    /// Asks for a folder to connect.
-    pub connect: Action,
-    /// The connected repos, in the file's order.
-    pub repos: Vec<RepoRow>,
-}
-
-/// One connected repo.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RepoRow {
-    /// The repo's id.
-    pub id: String,
-    /// Its label.
-    pub label: String,
-    /// Its folder.
-    pub path: String,
-    /// Disconnects it.
-    pub disconnect: Action,
-    /// The origins bound to it.
-    pub origins: Vec<BoundOriginRow>,
-}
-
-/// One origin bound to a repo.
-#[derive(Debug, Clone, PartialEq)]
-pub struct BoundOriginRow {
-    /// The origin.
-    pub origin: String,
-    /// Whether auto-fix is on for it.
-    pub auto_fix: bool,
-    /// Turns auto-fix the other way.
-    pub toggle_auto_fix: Action,
-    /// Drops the binding.
-    pub remove: Action,
-}
-
 impl App {
     /// The connected repos and the origins bound to them.
     pub fn repos(&self) -> &specular_agent::Repos {
         &self.repos
-    }
-}
-
-/// The Repos pane for `app` as it is now.
-pub fn repos_pane(app: &App) -> ReposPane {
-    let repos = (app.repos.all().iter())
-        .map(|repo| RepoRow {
-            id: repo.id.clone(),
-            label: repo.label.clone(),
-            path: repo.absolute_path.clone(),
-            disconnect: Action::Repo(RepoAction::Disconnect(repo.id.clone())),
-            origins: (repo.bound_origins.iter())
-                .map(|bound| BoundOriginRow {
-                    origin: bound.origin.clone(),
-                    auto_fix: bound.auto_fix,
-                    toggle_auto_fix: Action::Repo(RepoAction::SetAutoFix {
-                        origin: bound.origin.clone(),
-                        on: !bound.auto_fix,
-                    }),
-                    remove: Action::Repo(RepoAction::Unlink(bound.origin.clone())),
-                })
-                .collect(),
-        })
-        .collect();
-    ReposPane {
-        connect: Action::Repo(RepoAction::Pick(None)),
-        repos,
     }
 }
 
@@ -122,10 +58,16 @@ pub(crate) fn run(app: &mut App, action: RepoAction, effects: &mut Vec<Effect>) 
             effects.push(Effect::PickRepoFolder { origin });
             return;
         }
+        // A folder connected for a site's source is a project too (ADR
+        // 0062), so the sidebar lists it and its canvases.
         RepoAction::Connect(path) => {
             app.repos.connect(&path);
+            effects.push(Effect::OpenProject(path));
         }
-        RepoAction::Bind { origin, path } => app.repos.bind(&origin, &path),
+        RepoAction::Bind { origin, path } => {
+            app.repos.bind(&origin, &path);
+            effects.push(Effect::OpenProject(path));
+        }
         RepoAction::BindTo { repo, origin } => {
             app.repos.bind_to(&repo, &origin);
         }

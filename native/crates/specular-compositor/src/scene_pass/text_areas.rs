@@ -9,7 +9,7 @@ use glyphon::{
     RasterizedCustomGlyph, TextBounds,
 };
 use specular_scene::OwnerId;
-use specular_scene::{Color, ColumnDraw, Point, Rect, Size, TextRun};
+use specular_scene::{Color, ColumnDraw, ColumnMeasure, Point, Rect, Size, TextRun};
 
 use super::column::{self, rule_rect};
 use super::text_hold::Laid;
@@ -66,7 +66,7 @@ pub(super) struct Areas<'a> {
     /// Where the batch is laid out: its space in layout pixels.
     laid: &'a Laid,
     /// How tall each owned column's rows came out.
-    heights: Vec<(OwnerId, f32)>,
+    heights: Vec<(OwnerId, ColumnMeasure)>,
     glyphs: u32,
 }
 
@@ -86,7 +86,13 @@ impl<'a> Areas<'a> {
 
     /// The areas in paint order, the lines their ranges index, and the
     /// height of each column that has an owner.
-    pub(super) fn finish(self) -> (Vec<Area<'a>>, Vec<CustomGlyph>, Vec<(OwnerId, f32)>) {
+    pub(super) fn finish(
+        self,
+    ) -> (
+        Vec<Area<'a>>,
+        Vec<CustomGlyph>,
+        Vec<(OwnerId, ColumnMeasure)>,
+    ) {
         (self.placed, self.lines, self.heights)
     }
 
@@ -168,7 +174,7 @@ impl<'a> Areas<'a> {
                 .map_or(Size::default(), |shaped| shaped.size)
         });
         if let Some(owner) = &column.owner {
-            self.heights.push((owner.clone(), layout.height()));
+            self.heights.push((owner.clone(), measure(column, &layout)));
         }
         let origin = layout.bounds(column).origin();
         let start = self.lines.len();
@@ -222,4 +228,19 @@ pub(super) fn solid(request: RasterizeCustomGlyphRequest) -> Option<RasterizedCu
         data: vec![u8::MAX; usize::from(request.width) * usize::from(request.height)],
         content_type: ContentType::Mask,
     })
+}
+
+/// The height of an owned column and where its row targets landed.
+fn measure(column: &ColumnDraw, layout: &column::ColumnLayout) -> ColumnMeasure {
+    let targets = (layout.rows(column))
+        .filter_map(|(row, at)| {
+            let target = row.target?;
+            let rect = Rect::new(target.x, at.top, target.width, target.height.min(at.height));
+            Some((target.id, rect))
+        })
+        .collect();
+    ColumnMeasure {
+        height: layout.height(),
+        targets,
+    }
 }

@@ -116,6 +116,7 @@ fn apply(property: &Property, page: &mut Page, rect: &mut Rect) -> bool {
         | Property::TextAlign(_)
         | Property::TextVerticalAlign(_)
         | Property::ShapeKind(_)
+        | Property::CustomShape(_)
         | Property::FillStyle(_)
         | Property::BorderStyle(_)
         | Property::StrokeWidth(_)

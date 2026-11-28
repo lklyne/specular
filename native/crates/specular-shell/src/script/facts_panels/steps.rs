@@ -112,6 +112,7 @@ impl PanelStep {
                 }))
                 .into_iter()
                 .collect(),
+                thread: None,
             })),
             Self::Chat(button, numbers) => Event::Action(chat_button(app, button, numbers)?),
             Self::AgentSays(notice) => {

@@ -92,3 +92,42 @@ fn the_bounds_stop_at_twenty_units_and_nothing_inside_vanishes() {
     );
     app.assert_undo_returns_to_start();
 }
+
+#[test]
+fn a_pages_frame_keeps_to_the_edges_its_resize_holds_still() {
+    use specular_interact::FramePin;
+    let cases = [
+        (
+            LEFT,
+            FramePin {
+                right: true,
+                bottom: false,
+            },
+        ),
+        (
+            TOP_LEFT,
+            FramePin {
+                right: true,
+                bottom: true,
+            },
+        ),
+        (
+            TOP_RIGHT,
+            FramePin {
+                right: false,
+                bottom: true,
+            },
+        ),
+        (RIGHT, FramePin::default()),
+    ];
+    for (handle, pin) in cases {
+        let mut app = selected(page("p", S));
+        app.drag(handle, (handle.0 - 40.0, handle.1 - 20.0));
+        assert_eq!(
+            app.app().frame_pin(&"p".into()),
+            pin,
+            "from the handle at {handle:?}"
+        );
+        app.assert_undo_returns_to_start();
+    }
+}

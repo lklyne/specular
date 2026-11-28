@@ -202,6 +202,9 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
     out.push(head(&model.canvases_head));
     let add = ControlId::new("sidebar.add");
     out.push(run(&add, &model.add_canvas, true, true, &plain));
+    let open = ControlId::new("sidebar.open");
+    let open_project = crate::Action::Project(crate::ProjectAction::Open);
+    out.push(run(&open, &open_project, true, true, &plain));
     if !model.canvases_head.folded {
         for canvas in &model.canvases {
             out.push(run(&canvas.control, &canvas.action, true, true, &plain));
@@ -211,6 +214,11 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
                 inside: Inside::Nothing,
             });
             menu(app, &MenuTarget::Canvas(canvas.id.clone()), out);
+        }
+    }
+    for project in &model.projects {
+        for (id, action) in crate::sidebar::project_controls(project) {
+            out.push(run(&id, &action, true, true, &plain));
         }
     }
     for (section, listed) in [
@@ -225,7 +233,8 @@ fn sidebar(app: &App, out: &mut Vec<Named>) {
 }
 
 /// Every control there is now, in the models' order: the tab row, the
-/// toolbar, the dock, the sidebar, the settings' switches, the context menu.
+/// toolbar, the dock, the sidebar, the first-run view's choices, the
+/// settings' switches, the context menu.
 fn named(app: &App) -> Vec<Named> {
     let mut out = Vec::new();
     let plain = Inside::Nothing;
@@ -239,6 +248,14 @@ fn named(app: &App) -> Vec<Named> {
     out.push(run(&strip.add.id, &strip.add.action, true, true, &plain));
     let bar = toolbar(app);
     out.extend((bar.chat.iter()).map(|button| run(&button.id, &button.action, true, true, &plain)));
+    let sidebar_toggle = crate::sidebar::sidebar_toggle(app);
+    out.push(run(
+        &sidebar_toggle.id,
+        &sidebar_toggle.action,
+        true,
+        true,
+        &plain,
+    ));
     for section in &bar.sections {
         match section {
             ToolbarSection::Tools(tools) => {
@@ -260,6 +277,18 @@ fn named(app: &App) -> Vec<Named> {
         control(model, &plain, &mut out);
     }
     sidebar(app, &mut out);
+    for choice in crate::onboarding(app)
+        .into_iter()
+        .flat_map(|model| model.choices)
+    {
+        out.push(run(
+            &ControlId::new(choice.name),
+            &choice.action,
+            true,
+            true,
+            &plain,
+        ));
+    }
     let (launch, cursors) = crate::settings::setting_toggles(app);
     for toggle in launch.iter().chain(&cursors) {
         out.push(run(
@@ -367,7 +396,7 @@ pub(crate) fn activate(app: &mut App, id: &ControlId, keys: Modifiers, effects: 
 /// does a press that belongs to a page, a tool, a drag or a text edit.
 pub(crate) fn open_menu(app: &mut App, screen: Vec2) {
     app.session.panel.menu = None;
-    if screen.x < app.covered_left() {
+    if screen.x < app.insets().left {
         return;
     }
     let under = hit::hit_test(app, screen);

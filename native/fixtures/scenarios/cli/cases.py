@@ -214,6 +214,48 @@ def tabs_are_made_shown_written_in_the_background_and_deleted():
     check(all(t["name"] != "Back room" for t in ok("tab")["tabs"]), "it is gone")
 
 
+@case
+def projects_open_a_repo_beside_the_space_and_close_it():
+    listed = ok("project")
+    equal(len(listed), 1, "the space is the one project")
+    space = listed[0]
+    check(not space["repo"], "the space is a plain folder")
+    repo = os.path.join(os.path.dirname(SPACE), "site-repo")
+    os.makedirs(os.path.join(repo, ".git"), exist_ok=True)
+    with open(os.path.join(repo, ".git", "HEAD"), "w") as head:
+        head.write("ref: refs/heads/main\n")
+    refused("usage: specular project open <folder>", "project", "open")
+    ok("project", "open", repo)
+    for _ in range(50):
+        listed = ok("project")
+        if len(listed) == 2:
+            break
+        time.sleep(0.1)
+    equal(len(listed), 2, "the repo is a second project")
+    site = listed[1]
+    equal(site["label"], "site-repo", "named for its folder")
+    check(site["repo"], "it is a repo")
+    equal(site["branch"], "main", "on its branch")
+    equal(site["canvasFolder"], os.path.join(repo, ".specular/canvases"), "canvases apart")
+    equal(site["git"], None, "the git choice waits for the person")
+    made = ok("tab", "new", "Homepage", "--project", "site-repo")
+    equal(made["name"], "Homepage", "a canvas in the repo")
+    for _ in range(50):
+        if glob.glob(os.path.join(repo, ".specular/canvases/Homepage-*.canvas")):
+            break
+        time.sleep(0.1)
+    check(glob.glob(os.path.join(repo, ".specular/canvases/Homepage-*.canvas")), "written in the repo")
+    check(not glob.glob(os.path.join(SPACE, "Homepage-*.canvas")), "not in the space")
+    ok("project", "close", "site-repo")
+    for _ in range(50):
+        if len(ok("project")) == 1:
+            break
+        time.sleep(0.1)
+    equal(len(ok("project")), 1, "closed")
+    check(glob.glob(os.path.join(repo, ".specular/canvases/Homepage-*.canvas")), "its files stay")
+    refused("the last project stays open", "project", "close", space["id"])
+
+
 # --- share ------------------------------------------------------------------
 
 
@@ -599,6 +641,112 @@ def comments_are_made_answered_listed_and_read():
     saved("Comments", lambda d: any(n.get("id") == on_page["id"] for n in
                                     d.get("specular", {}).get("annotations", []))
           or on_page["id"] in json.dumps(d), "the comments")
+
+
+# --- the command registry ----------------------------------------------------
+
+
+@case
+def commands_lists_the_registry_and_run_runs_one_by_name():
+    a, b, _c = fresh("Commands", notes=True)
+    listed = {c["name"]: c for c in ok("commands")["commands"]}
+    check({"edit.undo", "tool.set", "control.press"} <= set(listed), f"commands: {sorted(listed)}")
+    equal(listed["tool.set"]["args"].startswith("{tool:"), True, "tool.set's args")
+    check(listed["edit.undo"]["about"], "every command says what it does")
+
+    equal(ok("run", "edit.select", json.dumps({"ids": [a, b]})), {"ok": True, "name": "edit.select"}, "run")
+    x = node(b)["x"]
+    ok("run", "edit.nudge", '{"dx": 10, "dy": 0}')
+    equal(node(b)["x"], x + 10, "run with arguments")
+    ok("run", "edit.undo")
+    equal(node(b)["x"], x, "a command run by name is one undo step")
+    refused("did you mean edit.undo", "run", "edit.undoo")
+    ok("run", "edit.redo")
+    equal(node(b)["x"], x + 10, "and redone")
+    refused("cannot run now", "run", "edit.redo")
+    refused("`dx` is a number", "run", "edit.nudge")
+    refused("not JSON", "run", "edit.nudge", "{dx")
+    refused("usage: specular run", "run")
+    refused("the window's own", "run", "app.quit")
+
+
+
+@case
+def state_reads_the_keyed_state_and_ui_toggle_moves_it():
+    fresh("State", notes=True)
+    every = ok("state")
+    for key in ("panels/toolbar", "panels/dock", "panels/strip", "theme", "settings", "keys", "layout"):
+        check(key in every, f"state has {key}: {sorted(every)}")
+    toolbar = ok("state", "panels/toolbar")
+    check("zoom" in json.dumps(toolbar), "the zoom readout is named")
+    check("%" not in json.dumps(toolbar["sections"]), "and carries no camera value")
+    check(any(k["command"] == "ui.reset" and k.get("fixed") for k in ok("state", "keys")), "the reset key")
+    equal(ok("state", "layout")["hidden"], [], "nothing hidden")
+    ok("run", "ui.toggle", '{"id": "toolbar"}')
+    equal(ok("state", "layout")["hidden"], ["toolbar"], "ui.toggle hides a region")
+    ok("run", "ui.reset")
+    equal(ok("state", "layout")["hidden"], [], "ui.reset shows it again")
+    refused("no state key `nope`", "state", "nope")
+
+
+@case
+def mod_verbs_read_the_mods_and_check_one():
+    fresh("Mods", notes=True)
+    equal(ok("mod", "state", "panels/toolbar"), ok("state", "panels/toolbar"), "mod state is state")
+    refused("no state key `nope`", "mod", "state", "nope")
+    stats = ok("mod", "stats")
+    check(isinstance(stats.get("mods"), list), f"mod stats lists the mods: {stats}")
+    for entry in stats["mods"]:
+        for field in ("id", "renders", "meanMs", "slowestMs", "reads"):
+            check(field in entry, f"a mod's stats have {field}: {entry}")
+    refused("usage: specular mod", "mod")
+
+    import tempfile
+
+    work = tempfile.mkdtemp()
+    fixture = os.path.join(work, "state.json")
+    with open(fixture, "w") as f:
+        f.write(cli("state").out)
+    good = os.path.join(work, "hello")
+    os.makedirs(good)
+    with open(os.path.join(good, "mod.json"), "w") as f:
+        json.dump({"api": 1, "title": "Hello", "place": "dock"}, f)
+    with open(os.path.join(good, "main.js"), "w") as f:
+        f.write(
+            'import { View, div } from "gpui-kit";\n'
+            'import { state } from "specular";\n'
+            'export default class Hello extends View {\n'
+            '  render() { console.log("rendered"); return div().id("hello").child(state("theme").appearance); }\n'
+            "}\n"
+        )
+    ran = cli("mod", "check", good, "--state", fixture)
+    check('"hello"' in ran.out, f"mod check prints the tree with ids:\n{ran.out}")
+    check("rendered" in ran.out, f"and the console:\n{ran.out}")
+    check(not os.path.exists(good + ".error"), "a good mod leaves no error file")
+    with open(os.path.join(good, "main.js"), "w") as f:
+        f.write("export default class {\n")
+    cli("mod", "check", good, code=1)
+    check(os.path.exists(good + ".error"), "a broken mod gets <name>.error")
+
+
+@case
+def skill_prints_the_mod_manual():
+    manual = cli("--skill").out
+    check(manual.startswith("# specular mods"), f"--skill prints the manual:\n{manual[:200]}")
+    check("specular mod check" in manual, "with the check step")
+
+
+@case
+def shot_saves_the_canvas_as_a_png():
+    import tempfile
+
+    fresh("Shot", notes=True)
+    path = os.path.join(tempfile.mkdtemp(), "canvas.png")
+    shot = ok("shot", path)
+    equal(shot.get("path"), path, "shot prints where it wrote")
+    check(shot.get("width", 0) > 0 and shot.get("height", 0) > 0, f"and the size: {shot}")
+    with open(path, "rb") as f:
+        equal(f.read(8), b"\x89PNG\r\n\x1a\n", "the file is a PNG")
 
 
 # --- browse verbs with no page ------------------------------------------------

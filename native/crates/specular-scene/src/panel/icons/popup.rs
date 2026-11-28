@@ -143,6 +143,15 @@ pub(super) const fn shape(kind: ShapeKind) -> Glyph {
                 ]
             }
         }
+        // A mod's shape is shown by its mod's own glyph; this stands in
+        // where none is known.
+        ShapeKind::Custom => {
+            const {
+                &[silhouette(
+                    "M50,4 L62,38 L98,38 L69,60 L80,95 L50,74 L20,95 L31,60 L2,38 L38,38 Z",
+                )]
+            }
+        }
     };
     Glyph {
         view: [-6.0, -6.0, 112.0, 112.0],
@@ -151,3 +160,14 @@ pub(super) const fn shape(kind: ShapeKind) -> Glyph {
         layers,
     }
 }
+
+/// A five-pointed star, drawn as [`shape`] draws a kind's silhouette.
+pub(super) const STAR: Glyph = Glyph {
+    view: [-6.0, -6.0, 112.0, 112.0],
+    clipped: false,
+    lined: false,
+    layers: &[silhouette(
+        "M50,4 L61.8,37.8 L97.6,38.5 L69,60.2 L79.4,94.5 L50,74 L20.6,94.5 L31,60.2 \
+         L2.4,38.5 L38.2,37.8 Z",
+    )],
+};

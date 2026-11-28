@@ -103,7 +103,7 @@ impl App {
     /// in from the window's edge, so its corners are the window's less that
     /// margin and the two curves stay the same distance apart.
     pub fn fill_corner_radius(&self, id: &EntityId) -> Option<f32> {
-        let page = self.document.entity(id).is_some_and(is_page);
+        let page = self.document.entity(id).is_some_and(|it| is_page(self, it));
         (fills(self, id) && page).then_some((WINDOW_CORNER_RADIUS - FILL_MARGIN) as f32)
     }
 
@@ -128,7 +128,7 @@ pub(crate) fn can_show(entity: &Entity) -> bool {
     match &entity.kind {
         Kind::Page(_) => true,
         Kind::File(file) => file.is_html() || is_note_file(&file.file),
-        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) => false,
+        Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_) => false,
     }
 }
 
@@ -156,6 +156,8 @@ pub(crate) fn openable(app: &App) -> Option<&EntityId> {
 /// be shown alone changes nothing. Showing an item selects it. Going back
 /// to the canvas leaves the page.
 pub(crate) fn show(app: &mut App, showing: Showing, effects: &mut Vec<Effect>) {
+    // A page shown in a tab is resized with the window, from its top-left.
+    app.session.frame_pins.clear();
     update::verb(app, effects, |app, effects| match showing {
         Showing::Canvas => {
             leave(app);
@@ -192,7 +194,7 @@ fn enter(app: &mut App, item: &EntityId, from: Option<motion::Seen>, effects: &m
     let Some(entity) = app.document.entity(item).filter(|it| can_show(it)) else {
         return;
     };
-    let page = is_page(entity).then(|| item.clone());
+    let page = is_page(app, entity).then(|| item.clone());
     let canvas_camera = app.canvas_camera();
     app.session.prepared = None;
     app.session.motion.begin(from, false);

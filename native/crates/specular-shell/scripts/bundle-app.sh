@@ -7,6 +7,7 @@
 #     Info.plist                                    name, id, icon, .canvas documents
 #     MacOS/Specular                                the `specular` binary
 #     MacOS/specular-cli                            the `specular` command a link on the PATH points at
+#     MacOS/specular-mod-check                      what `specular mod check` runs, found beside the CLI
 #     MacOS/specular-helper                         the Agent SDK host, from native/helper
 #     Helpers/claude                                the Claude Code runtime the SDK runs
 #     Frameworks/Chromium Embedded Framework.framework
@@ -85,6 +86,7 @@ out="${out:-$target_dir/bundle}"
 bin="$target_dir/specular"
 cef_helper_bin="$target_dir/specular-cef-helper"
 cli_bin="$target_dir/specular-cli"
+mod_check_bin="$target_dir/specular-mod-check"
 app="$out/$APP_NAME.app"
 : "${CEF_PATH:?set CEF_PATH to the CEF binary distribution directory}"
 
@@ -92,7 +94,7 @@ if [[ "$build" == 1 ]]; then
   flag=()
   [[ "$profile" == release ]] && flag=(--release)
   (cd "$native_dir" && cargo build ${flag[@]+"${flag[@]}"} -p specular-shell -p specular-cef-helper --features cef)
-  (cd "$native_dir" && cargo build ${flag[@]+"${flag[@]}"} -p specular-cli)
+  (cd "$native_dir" && cargo build ${flag[@]+"${flag[@]}"} -p specular-cli -p specular-mod-check)
   (cd "$native_dir/helper" && bun install --frozen-lockfile && bun run build)
 fi
 # Built whatever --no-build says: its own cache makes a second run quick.
@@ -101,7 +103,7 @@ agent_browser="${AGENT_BROWSER_BIN:-$("$native_dir/scripts/build-agent-browser.s
 # The source tree the binary was built in holds the skill it reads.
 core_skill="${AGENT_BROWSER_CORE_SKILL:-${agent_browser%/cli/target/release/agent-browser}/skill-data/core}"
 [[ -f "$core_skill/SKILL.md" ]] || { echo "missing agent-browser's core skill at $core_skill" >&2; exit 1; }
-for built in "$bin" "$cef_helper_bin" "$cli_bin"; do
+for built in "$bin" "$cef_helper_bin" "$cli_bin" "$mod_check_bin"; do
   [[ -x "$built" ]] || { echo "missing $built; build it, or drop --no-build" >&2; exit 1; }
 done
 helper_bin="$native_dir/helper/dist/specular-helper"
@@ -202,9 +204,12 @@ cp -R "$repo_dir/resources/starter-space" "$app/Contents/Resources/starter-space
 cp "$helper_bin" "$app/Contents/MacOS/specular-helper"
 cp "$cli_bin" "$app/Contents/MacOS/specular-cli"
 strip -x "$app/Contents/MacOS/specular-cli"
+cp "$mod_check_bin" "$app/Contents/MacOS/specular-mod-check"
+strip -x "$app/Contents/MacOS/specular-mod-check"
 mkdir -p "$app/Contents/Resources/bin" "$app/Contents/Resources/skills"
 cp "$agent_browser" "$app/Contents/Resources/bin/agent-browser"
 cp -R "$repo_dir/resources/skills/specular" "$app/Contents/Resources/skills/specular"
+cp -R "$repo_dir/resources/skills/specular-mods" "$app/Contents/Resources/skills/specular-mods"
 cp -R "$core_skill" "$app/Contents/Resources/skills/core"
 mkdir -p "$app/Contents/Helpers"
 # Anthropic's own signature stays on the runtime.
@@ -260,6 +265,7 @@ for helper in "$app/Contents/Frameworks/"*.app; do
 done
 sign "$app/Contents/MacOS/specular-helper" "$agent_entitlements"
 sign "$app/Contents/MacOS/specular-cli"
+sign "$app/Contents/MacOS/specular-mod-check"
 sign "$app/Contents/Resources/bin/agent-browser"
 sign "$app" "$app_entitlements"
 codesign --verify --deep --strict "$app"

@@ -101,7 +101,8 @@ impl App {
                 | Gesture::Place(_)
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_)
-                | Gesture::EdgeDrag(_),
+                | Gesture::EdgeDrag(_)
+                | Gesture::ModTool,
             )
             | None => None,
         }

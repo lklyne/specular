@@ -131,11 +131,11 @@ key escape
 key delete
 expect showing canvas
 expect tabs count 1 view.
-act undo
+run edit.undo
 select p1
 key cmd+d
 control view.open
-act undo
+run edit.undo
 expect showing canvas
 
 # a new tab is a page in a free spot, shown, with the caret in its address
@@ -148,7 +148,7 @@ expect editing example.org
 key enter
 expect effects has navigate
 key escape
-act undo
+run edit.undo
 expect showing canvas
 expect count page 2
 

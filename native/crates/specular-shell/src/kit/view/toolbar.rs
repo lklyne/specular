@@ -12,12 +12,12 @@ use gpui_kit::{
     Styled as _, Window, div, px,
 };
 use specular_interact::{
-    ControlId, ControlsModel, PaintRole, Palette, SidebarButton, TOOLS_DOCK_WIDTH, ThemeButton,
-    ToolButton, ToolbarModel, ToolbarSection, ToolsPlace,
+    ControlId, ControlsModel, PaintRole, Palette, SidebarButton, ThemeButton, ToolButton,
+    ToolbarModel, ToolbarSection, ToolsPlace,
 };
 
 use super::controls::{column, control, hint};
-use super::dropdown::dropdown;
+use super::dropdown::{dropdown, dropdown_compact};
 use super::glyphs::{self, glyph, ink};
 use super::named::mark;
 use super::raised::Raised;
@@ -27,10 +27,10 @@ use crate::theme;
 /// The side of a tool's button, which is square.
 const TOOL_BUTTON: f32 = 28.0;
 const TOOL_GLYPH: f32 = 20.0;
-const PANEL_GLYPH: f32 = 14.0;
+const PANEL_GLYPH: f32 = 16.0;
 /// From the canvas's edge to a floating ribbon, and from a ribbon's own
 /// edge to its buttons.
-const RIBBON_INSET: f32 = 8.0;
+pub(super) const RIBBON_INSET: f32 = 8.0;
 const RIBBON_PAD: f32 = 4.0;
 /// From a tool's button to its options.
 const OPTIONS_GAP: f32 = 10.0;
@@ -60,7 +60,7 @@ fn tool(model: &ToolButton, tip: bool) -> impl IntoElement {
         .size(px(TOOL_BUTTON))
         // The Kit's own padding would leave a 20 px glyph 12 px of room.
         .px_0()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .selected(model.active)
         .when(model.active, |this| this.raised(6.0))
         .child(glyph(model.icon, current, tint, model.active, TOOL_GLYPH))
@@ -81,7 +81,7 @@ pub(super) fn panel_toggle(model: &SidebarButton) -> impl IntoElement {
     Button::new(SharedString::from(model.id.as_str().to_owned()))
         .ghost()
         .small()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         .child(
             div()
@@ -115,11 +115,11 @@ fn beside(group: &ControlId, text: SharedString) -> impl IntoElement {
         })
         .child(
             div()
-                .px_2()
-                .py_1()
-                .rounded(px(6.0))
+                .px(crate::theme::space(2.0))
+                .py(crate::theme::space(1.0))
+                .rounded(crate::theme::corner(6.0))
                 .bg(theme::solid(theme::popup()))
-                .border_1()
+                .border(crate::theme::line())
                 .border_color(theme::solid(theme::chrome_border()))
                 .shadow_md()
                 .whitespace_nowrap()
@@ -137,7 +137,7 @@ fn theme_button(model: &ThemeButton, tip: bool) -> impl IntoElement {
         .size(px(TOOL_BUTTON))
         // The Kit's own padding would leave a 20 px glyph 12 px of room.
         .px_0()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .when(tip, |this| {
             this.child(crate::tip::over(model.id.as_str(), model.label.to_string()))
         })
@@ -170,11 +170,11 @@ fn floats(id: &'static str) -> gpui_kit::Stateful<gpui_kit::Div> {
         .occlude()
         .flex()
         .p(px(RIBBON_PAD))
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .items_center()
-        .rounded(px(10.0))
+        .rounded(crate::theme::corner(10.0))
         .bg(theme::solid(theme::toolbar()))
-        .border_1()
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::chrome_border()))
         .shadow_md()
         .text_color(theme::solid(theme::toolbar_text()))
@@ -252,28 +252,24 @@ fn tools(
     out
 }
 
-/// The tools docked: a strip down the canvas's left edge, `left` from the
-/// window's, which the app counts as covered. The theme is at its foot.
+/// The tools docked: a strip filling the layout's `toolbar` block, which
+/// the app counts as covered when it lies left of the canvas. The theme is
+/// at its foot.
 pub(super) fn docked(
     model: &ToolbarModel,
     shown: Option<&ControlsModel>,
-    left: f32,
     window: &mut Window,
     cx: &mut App,
 ) -> impl IntoElement {
     v_flex()
         .id("ribbon")
         .occlude()
-        .absolute()
-        .left(px(left))
-        .top(px(theme::CHROME_HEIGHT))
-        .bottom_0()
-        .w(px(TOOLS_DOCK_WIDTH))
+        .size_full()
         .py(px(RIBBON_PAD))
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .items_center()
-        .bg(theme::solid(theme::toolbar()))
-        .border_r_1()
+        .bg(super::material::panel_fill(theme::toolbar()))
+        .border_r(crate::theme::line())
         .border_color(theme::solid(theme::toolbar_border()))
         .text_color(theme::solid(theme::toolbar_text()))
         .children(tools(model, shown, window, cx))
@@ -324,6 +320,24 @@ pub(super) fn zoom(model: &ToolbarModel) -> Option<AnyElement> {
         ToolbarSection::Zoom(zoom) => Some(dropdown(zoom)),
         ToolbarSection::Tools(_) => None,
     })
+}
+
+/// The zoom readout, for a mod's `Zoom`: the narrow one where the ribbon
+/// is docked.
+pub(crate) fn zoom_readout(compact: bool) -> Option<AnyElement> {
+    let (model, _) = crate::canvas::tool_models()?;
+    model.sections.iter().find_map(|section| match section {
+        ToolbarSection::Zoom(zoom) if compact => Some(dropdown_compact(zoom)),
+        ToolbarSection::Zoom(zoom) => Some(dropdown(zoom)),
+        ToolbarSection::Tools(_) => None,
+    })
+}
+
+/// The options of the tool in hand, for a mod's `ToolOptions`, placed as
+/// they are beside the app's own button.
+pub(crate) fn tool_options(window: &mut Window, cx: &mut App) -> Option<AnyElement> {
+    let (model, shown) = crate::canvas::tool_models()?;
+    Some(options(&shown?, model.tools, window, cx).into_any_element())
 }
 
 /// Minimize and the lenses of the tab showing, for the end of the dock's bar.

@@ -22,15 +22,22 @@ mod cursors;
 mod debug_input;
 #[cfg(target_os = "macos")]
 mod key_bindings;
+#[cfg(target_os = "macos")]
 mod keys;
 #[cfg(target_os = "macos")]
+mod look;
+#[cfg(target_os = "macos")]
 mod menus;
+#[cfg(target_os = "macos")]
+mod mods;
 #[cfg(target_os = "macos")]
 mod motion;
 #[cfg(target_os = "macos")]
 mod native;
 #[cfg(target_os = "macos")]
 mod pacing;
+#[cfg(target_os = "macos")]
+mod paint;
 #[cfg(target_os = "macos")]
 mod pins;
 #[cfg(target_os = "macos")]
@@ -40,7 +47,6 @@ mod resize_trace;
 #[cfg(target_os = "macos")]
 mod settings;
 #[cfg(target_os = "macos")]
-mod settings_repos;
 #[cfg(target_os = "macos")]
 mod setup;
 #[cfg(target_os = "macos")]
@@ -51,11 +57,16 @@ mod spaces;
 mod surface;
 #[cfg(target_os = "macos")]
 mod theme;
+#[cfg(target_os = "macos")]
 mod tip;
 #[cfg(target_os = "macos")]
 mod updates;
 #[cfg(target_os = "macos")]
 mod view;
+#[cfg(target_os = "macos")]
+mod whole_shot;
+#[cfg(target_os = "macos")]
+mod window_buttons;
 
 #[cfg(target_os = "macos")]
 fn main() {

@@ -67,6 +67,23 @@ impl Threads {
         self.runs.clear();
     }
 
+    /// Adds the threads of a project just opened beside the others, and
+    /// their canvases' active threads. Threads already held, and the runs
+    /// in flight, stay as they are.
+    pub fn add(&mut self, threads: Vec<Thread>, index: &Index) {
+        let threads: Vec<Thread> = (threads.into_iter())
+            .filter(|thread| !self.items.iter().any(|held| held.id == thread.id))
+            .collect();
+        for (tab, id) in &index.by_canvas {
+            let open = (threads.iter())
+                .any(|t| &t.id == id && &t.tab_id == tab && t.status != Status::Closed);
+            if open {
+                self.active.entry(tab.clone()).or_insert_with(|| id.clone());
+            }
+        }
+        self.items.extend(threads);
+    }
+
     /// The text for `index.json`, naming `tab`'s active thread as the single
     /// active id Electron reads.
     pub fn index_json(&self, tab: Option<&str>) -> String {
@@ -125,12 +142,17 @@ impl Threads {
         })
     }
 
-    /// A fresh draft, made the canvas's active thread.
-    pub fn new_thread(&mut self, tab: &str, id: ThreadId, now: &str) -> Changed {
-        self.insert_draft(tab, id.clone(), now);
+    /// A fresh draft on the canvas. `open` makes it the canvas's active
+    /// thread; without it the draft is made beside the open one, for a view
+    /// of its own (a mod's block) to show. `id` must name no thread yet.
+    pub fn new_thread(&mut self, tab: &str, id: ThreadId, now: &str, open: bool) -> Changed {
+        if self.get(&id).is_some() {
+            return Changed::default();
+        }
+        self.insert_draft(tab, id.clone(), now, open);
         Changed {
             threads: vec![id],
-            index: true,
+            index: open,
         }
     }
 
@@ -240,7 +262,7 @@ impl Threads {
         let before = self.active.clone();
         let (id, key) = self.comment_home(tab, annotation_id, new_thread_id, join);
         if self.get(&id).is_none() {
-            self.insert_draft(&key, id.clone(), now);
+            self.insert_draft(&key, id.clone(), now, true);
         }
         self.active.insert(key, id.clone());
         let text = text.trim();
@@ -311,7 +333,7 @@ impl Threads {
         let (id, started) = if let Some(id) = active {
             (id, false)
         } else {
-            self.insert_draft(tab, new_thread_id.clone(), now);
+            self.insert_draft(tab, new_thread_id.clone(), now, true);
             (new_thread_id, true)
         };
         self.append(&id, user_message(message_id, text.trim(), images, now), now);
@@ -324,7 +346,29 @@ impl Threads {
         ))
     }
 
-    fn insert_draft(&mut self, tab: &str, id: ThreadId, now: &str) {
+    /// The text (and images) as a queued message on the thread `id`, open
+    /// or not. `None` when the thread is missing or closed. With nothing
+    /// to send it answers the thread unchanged, so its queue can be sent.
+    pub fn queue_message_to(
+        &mut self,
+        id: &ThreadId,
+        message_id: &str,
+        text: &str,
+        images: Vec<Image>,
+        now: &str,
+    ) -> Option<Changed> {
+        let open = self.get(id).is_some_and(|t| t.status != Status::Closed);
+        if !open {
+            return None;
+        }
+        if text.trim().is_empty() && images.is_empty() {
+            return Some(Changed::default());
+        }
+        self.append(id, user_message(message_id, text.trim(), images, now), now);
+        Some(Changed::thread(id))
+    }
+
+    fn insert_draft(&mut self, tab: &str, id: ThreadId, now: &str, open: bool) {
         self.items.push(Thread {
             id: id.clone(),
             tab_id: tab.to_owned(),
@@ -336,7 +380,9 @@ impl Threads {
             annotation_ids: Vec::new(),
             messages: Vec::new(),
         });
-        self.active.insert(tab.to_owned(), id);
+        if open {
+            self.active.insert(tab.to_owned(), id);
+        }
     }
 
     fn append(&mut self, id: &ThreadId, message: Message, now: &str) {

@@ -20,8 +20,10 @@
 
 mod act;
 mod annotations;
+pub mod bridge;
 mod canvas;
 pub mod cdp;
+mod commands;
 mod facts;
 mod fix;
 mod host;
@@ -32,8 +34,10 @@ mod pages;
 mod patch;
 mod placement;
 mod presets;
+mod projects;
 mod reply;
 mod share;
+mod state;
 mod tabs;
 mod tasks;
 mod unported;
@@ -113,6 +117,9 @@ pub enum Plan {
     },
     /// Ask the shell about a page's devtools endpoint, which it serves.
     Cdp(CdpAsk),
+    /// Answer with the mods the window loaded and their cost, which only
+    /// the window knows.
+    Mods,
     /// Run a script in a page and answer with what it returns, once the
     /// page has answered.
     PageScript(PageScript),
@@ -133,6 +140,8 @@ pub enum ShotArea {
     /// The canvas as the window shows it.
     #[default]
     Window,
+    /// The whole window as the screen shows it, its panels included.
+    Whole,
     /// This rect of the canvas, with everything on it.
     Canvas(Rect),
     /// One page at its own size.
@@ -155,6 +164,7 @@ pub(crate) enum Step {
     Annotated(Value, Screenshot),
     Cdp(CdpAsk),
     PageScript(PageScript),
+    Mods,
 }
 
 /// The API's state between requests: the sequences ids and tickets are
@@ -216,6 +226,7 @@ impl Api {
             Ok(Step::Annotated(body, shot)) => Plan::Annotated { body, shot },
             Ok(Step::Cdp(ask)) => Plan::Cdp(ask),
             Ok(Step::PageScript(script)) => Plan::PageScript(script),
+            Ok(Step::Mods) => Plan::Mods,
             Err(response) => Plan::Answer(response),
         }
     }
@@ -237,6 +248,13 @@ impl Api {
             (Get, ["health"]) => Ok(Step::Answer(json!({ "version": VERSION }))),
             (Get, ["canvas"]) => canvas::read(app, user),
             (Get, ["tabs"]) => Ok(Step::Answer(tabs::identity(user))),
+            (Get, ["projects"]) => Ok(Step::Answer(projects::list(user))),
+            (Post, ["projects"]) => projects::open(request),
+            (Post, ["projects", "close"]) => projects::close(user, request),
+            (Get, ["commands"]) => Ok(Step::Answer(commands::list(app))),
+            (Post, ["run"]) => commands::run(app, request),
+            (Get, ["state"]) => state::read(app, request),
+            (Get, ["mods"]) => Ok(Step::Mods),
             (Get, ["share"]) => Ok(Step::Answer(share::status(user))),
             (Post, ["share"]) => share::start(request),
             (Post, ["share", "stop"]) => Ok(share::stop()),
@@ -280,12 +298,37 @@ impl Api {
             (Post, ["annotations", "fix"]) => fix::fix(app, request),
             (Post, ["annotations", id, verb]) => annotations::respond(app, request, id, verb),
             (Delete, ["annotations", id]) => annotations::delete(app, id),
+            (Post, ["session", "presence"]) => Ok(report(request, request.text("labelKey"))),
+            (Post, ["mcp", "session", "open"]) => Ok(report(request, Some("open"))),
+            (Post, ["mcp", "session", "close"]) => Ok(report(request, Some("departing"))),
             (Post, ["window", "screenshot"]) => Ok(Step::Screenshot(Screenshot {
                 path: request.text("path").map(PathBuf::from),
-                area: ShotArea::Window,
+                area: if request.body.get("whole").and_then(Value::as_bool) == Some(true) {
+                    ShotArea::Whole
+                } else {
+                    ShotArea::Window
+                },
             })),
             _ => unported::answer(request, segments),
         }
+    }
+}
+
+/// What the CLI says its agent is doing, for that agent's cursor. A report
+/// with no label moves nothing.
+/// Every report carries the name the caller gives itself, which names its
+/// badge; `open` carries nothing else.
+fn report(request: &Request, key: Option<&str>) -> Step {
+    let done = json!({ "ok": true });
+    match key {
+        Some(key) => Step::Run(
+            ApiRun::Report {
+                key: key.to_owned(),
+                name: request.text("clientName").map(str::to_owned),
+            },
+            Reply::Fixed(done),
+        ),
+        None => Step::Answer(done),
     }
 }
 

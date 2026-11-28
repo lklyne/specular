@@ -14,6 +14,7 @@
 //! (ADR 0039).
 
 mod bounds;
+mod brush;
 mod cache;
 mod color;
 mod colors;
@@ -35,13 +36,14 @@ mod view;
 /// and reads nothing from it.
 pub type OwnerId = specular_doc::EntityId;
 
+pub use brush::brush_outline;
 pub use cache::ViewCache;
 pub use color::Color;
 pub use colors::{Colors, Hues, PanelColors, Shade};
-pub use column::{ColumnDraw, Row, RowRule, RuleHeight};
+pub use column::{ColumnDraw, ColumnMeasure, Row, RowRule, RowTarget, RuleHeight};
 pub(crate) use fade::PageBand;
 pub use item::{Blend, Draw, Item, Scene, Space};
-pub use media::{ImageDraw, ImageId, PageDraw};
+pub use media::{FramePin, ImageDraw, ImageId, PageDraw};
 pub use panel::{arrow_cursor_svg, icon_svg, panel_color};
 pub use path::{Dash, LineCap, LineJoin, PathCommand, PathDraw, PathStroke, PolygonDraw};
 pub use shape::{EllipseDraw, RectDraw, ShadowDraw, Stroke, StrokeAlign};

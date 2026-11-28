@@ -129,7 +129,8 @@ impl Session {
                 | Gesture::Draw(_)
                 | Gesture::TextSelect(_)
                 | Gesture::EdgeDrag(_)
-                | Gesture::Line(_),
+                | Gesture::Line(_)
+                | Gesture::ModTool,
             )
             | None => None,
         }

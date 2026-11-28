@@ -21,6 +21,7 @@ mod annotation;
 mod canvas;
 mod color;
 mod command;
+mod custom_shape;
 mod device_art;
 mod document;
 mod edge;
@@ -30,6 +31,8 @@ mod history;
 mod id;
 mod image_frame;
 mod kinds;
+mod mod_draw;
+mod mod_item;
 mod page_fields;
 mod presets;
 mod safe_area;
@@ -39,6 +42,7 @@ pub use annotation::{Annotation, AnnotationAnchor, AnnotationStatus, Author, Reg
 pub use canvas::{CanvasError, tidy_json};
 pub use color::{Color, ColorPreset};
 pub use command::{Command, CommandError};
+pub use custom_shape::{CustomShape, OutlineCommand, OutlineError};
 pub use device_art::{ArtGeometry, DeviceArt, DeviceFrameColor, DeviceFrameStyle};
 pub use document::Document;
 pub use edge::{Edge, EdgeEnd, EdgeKind, EdgeSide, LineStyle};
@@ -52,6 +56,8 @@ pub use kinds::{
     Page, PageSource, Shape, ShapeKind, Stroke, Text, TextAlign, TextFont, TextStyle,
     VerticalAlign, WidthMode,
 };
+pub use mod_draw::{DrawBox, ModDraw, Paint};
+pub use mod_item::{ModFallback, ModItem, ModNeed};
 pub(crate) use presets::device_shell;
 pub use presets::{
     DeviceKind, DeviceShell, LAPTOP, PRESET_MAIN, PRESET_MENU, ShellInsets, VIEWPORT_PRESETS,

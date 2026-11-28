@@ -70,7 +70,8 @@ fn label_box(kind: ShapeKind, rect: Rect) -> Rect {
         | ShapeKind::Ellipse
         | ShapeKind::Hexagon
         | ShapeKind::Pill
-        | ShapeKind::Parallelogram => return rect,
+        | ShapeKind::Parallelogram
+        | ShapeKind::Custom => return rect,
     };
     Rect::new(
         rect.x + rect.width * x / 100.0,
@@ -172,7 +173,7 @@ pub(crate) fn of(entity: &Entity, rect: Rect) -> Option<TextFrame> {
     match &entity.kind {
         Kind::Text(text) => Some(text_frame(rect, text)),
         Kind::Shape(shape) => Some(label_frame(rect, shape)),
-        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) => None,
+        Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Mod(_) => None,
     }
 }
 

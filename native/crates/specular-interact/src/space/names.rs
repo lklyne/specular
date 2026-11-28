@@ -39,8 +39,9 @@ fn file_stem(name: &str) -> String {
     }
 }
 
-/// Whether a canvas other than `except` has `name`, once trimmed.
-pub(super) fn taken(canvases: &[Canvas], name: &str, except: Option<&CanvasId>) -> bool {
+/// Whether a canvas of `canvases`, one project's, other than `except` has
+/// `name`, once trimmed.
+pub(super) fn taken(canvases: &[&Canvas], name: &str, except: Option<&CanvasId>) -> bool {
     (canvases.iter())
         .filter(|canvas| Some(&canvas.id) != except)
         .any(|canvas| canvas.name.trim() == name.trim())
@@ -48,7 +49,7 @@ pub(super) fn taken(canvases: &[Canvas], name: &str, except: Option<&CanvasId>) 
 
 /// The name a canvas made with none gets: `Canvas N`, counting from one
 /// more than there are, skipping any that is taken.
-pub(super) fn next_default(canvases: &[Canvas]) -> String {
+pub(super) fn next_default(canvases: &[&Canvas]) -> String {
     // Among one more name than there are canvases, one is free.
     (canvases.len() + 1..=canvases.len() * 2 + 2)
         .map(|number| format!("Canvas {number}"))
@@ -58,7 +59,7 @@ pub(super) fn next_default(canvases: &[Canvas]) -> String {
 
 /// The name a copy of the canvas `name` gets: `name Copy`, then
 /// `name Copy 2` and on while that is taken.
-pub(super) fn copy_of(canvases: &[Canvas], name: &str) -> String {
+pub(super) fn copy_of(canvases: &[&Canvas], name: &str) -> String {
     let first = format!("{} Copy", name.trim());
     if !taken(canvases, &first, None) {
         return first;

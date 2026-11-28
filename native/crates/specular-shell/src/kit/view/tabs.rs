@@ -67,24 +67,30 @@ const HOVERED: &str = "tab";
 
 /// The glyph before a tab's label: the page's own icon when it has one.
 fn lead(model: &ViewTab, text: u32) -> AnyElement {
-    let Some(png) = &model.favicon else {
-        return glyph(model.icon, ink(text), None, false, TAB_GLYPH).into_any_element();
-    };
+    match &model.favicon {
+        Some(png) => favicon(&model.id, png, TAB_GLYPH),
+        None => glyph(model.icon, ink(text), None, false, TAB_GLYPH).into_any_element(),
+    }
+}
+
+/// The page's own icon on the tab `id`, `size` points square: also what a
+/// tab row mod's `Favicon` shows once the page has one.
+pub(crate) fn favicon(id: &ControlId, png: &Arc<[u8]>, size: f32) -> AnyElement {
     let image = FAVICONS.with_borrow_mut(|favicons| {
         let kept = favicons
-            .get(&model.id)
+            .get(id)
             .filter(|(bytes, _)| Arc::ptr_eq(bytes, png));
         if let Some((_, image)) = kept {
             return Arc::clone(image);
         }
         let image = Arc::new(Image::from_bytes(ImageFormat::Png, png.to_vec()));
-        favicons.insert(model.id.clone(), (Arc::clone(png), Arc::clone(&image)));
+        favicons.insert(id.clone(), (Arc::clone(png), Arc::clone(&image)));
         image
     });
     img(image)
-        .size(px(TAB_GLYPH))
+        .size(px(size))
         .flex_shrink_0()
-        .rounded(px(3.0))
+        .rounded(crate::theme::corner(3.0))
         .into_any_element()
 }
 
@@ -120,17 +126,26 @@ fn label(model: &ViewTab, fill: u32, hovered: Option<u32>) -> impl IntoElement {
         )
 }
 
-/// A stretch of the row with nothing on it. The row is taller than the
-/// title bar macOS drags and zooms by itself: here a press that moves drags
-/// the window, and a double click does what the system setting says a
-/// title bar's does.
+/// A stretch of the row with nothing on it, at its least [`BARE`] wide.
 fn bare_strip() -> impl IntoElement {
-    h_flex()
-        .id("tabs-bare")
+    drag_area()
         .flex_1()
         .flex_shrink_0()
         .min_w(px(BARE))
         .h_full()
+}
+
+/// What a tab row mod's `WindowDrag` draws: bare title bar filling its box.
+pub(crate) fn window_drag() -> AnyElement {
+    drag_area().size_full().into_any_element()
+}
+
+/// Bare title bar. The row is taller than the title bar macOS drags and
+/// zooms by itself: here a press that moves drags the window, and a double
+/// click does what the system setting says a title bar's does.
+fn drag_area() -> gpui_kit::Stateful<gpui_kit::Div> {
+    h_flex()
+        .id("tabs-bare")
         .on_mouse_down(MouseButton::Left, |_, _, _| DRAG_ARMED.set(true))
         .on_mouse_up(MouseButton::Left, |_, _, _| DRAG_ARMED.set(false))
         .on_mouse_down_out(|_, _, _| DRAG_ARMED.set(false))
@@ -165,7 +180,7 @@ fn close(id: &ControlId, action: Action, active: bool, fill: u32, hover: u32) ->
         .size(px(CLOSE))
         .items_center()
         .justify_center()
-        .rounded(px(4.0))
+        .rounded(crate::theme::corner(4.0))
         .bg(theme::solid(fill))
         .hover(move |this| this.bg(theme::solid(hover)))
         .tooltip(crate::tip::view("Close tab".to_owned()))
@@ -207,10 +222,10 @@ fn tab(model: &ViewTab) -> impl IntoElement {
     let face = h_flex()
         .size_full()
         .px(px(6.0))
-        .gap_1p5()
+        .gap(crate::theme::space(1.5))
         .items_center()
         .overflow_hidden()
-        .rounded(px(6.0 - RIM))
+        .rounded(crate::theme::corner(6.0 - RIM))
         .child(lead(model, text))
         .child(label(model, fill, hovered));
     h_flex()
@@ -222,7 +237,7 @@ fn tab(model: &ViewTab) -> impl IntoElement {
         .h(px(TAB.2))
         .flex_shrink(1.0)
         .p(px(RIM))
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .cursor_pointer()
         .text_color(theme::solid(text))
         .when(model.active, |this| this.raised(6.0))
@@ -272,7 +287,7 @@ fn add(model: &Button) -> impl IntoElement {
         .flex_shrink_0()
         .items_center()
         .justify_center()
-        .rounded(px(6.0))
+        .rounded(crate::theme::corner(6.0))
         .cursor_pointer()
         .hover(|this| this.bg(theme::solid(theme::tab_hover())))
         .tooltip(crate::tip::view(model.label.to_string()))
@@ -285,36 +300,59 @@ fn add(model: &Button) -> impl IntoElement {
 /// button and the bare strip leave, shrinking together; past their least
 /// width the row cuts them off, so the strip is always there to drag the
 /// window by. The zoom readout, the Share button and the right panel's
-/// toggle, all of `toolbar`, end the row.
-pub(super) fn tabs(model: &ViewStrip, toolbar: &ToolbarModel) -> impl IntoElement {
+/// toggle, all of `toolbar`, end the row; the zoom only with `zoom`, as a
+/// toolbar mod places its own.
+pub(super) fn tabs(
+    model: &ViewStrip,
+    toolbar: &ToolbarModel,
+    zoom_shown: bool,
+) -> impl IntoElement {
     FAVICONS.with_borrow_mut(|favicons| {
         favicons.retain(|id, _| model.tabs.iter().any(|tab| tab.id == *id));
     });
     h_flex()
-        .h(px(theme::TAB_ROW))
-        .flex_shrink_0()
-        .pl(px(TRAFFIC_LIGHTS))
+        .size_full()
+        .pl(if toolbar.lights {
+            px(TRAFFIC_LIGHTS - 4.0)
+        } else {
+            crate::theme::space(2.0)
+        })
         .items_center()
+        .children(toolbar.sidebar.as_ref().map(|toggle| {
+            div()
+                .px(px(4.0))
+                .flex_shrink_0()
+                .child(panel_toggle(toggle))
+        }))
         .child(
             h_flex()
                 .min_w_0()
                 .flex_shrink(1.0)
-                .gap_1()
+                // The tabs are cut off past the row's room, but not their
+                // shadows: the box they are cut to reaches 5 px round each.
+                .px(px(4.0))
+                .py(px(5.0))
+                .gap(crate::theme::space(1.0))
                 .items_center()
                 .overflow_hidden()
                 .children(model.tabs.iter().map(tab)),
         )
-        .child(div().pl_1().flex_shrink_0().child(add(&model.add)))
+        .child(
+            div()
+                .pl(crate::theme::space(1.0))
+                .flex_shrink_0()
+                .child(add(&model.add)),
+        )
         .child(bare_strip())
         .child(
             h_flex()
-                .pr_3()
-                .gap_1()
+                .pr(crate::theme::space(3.0))
+                .gap(crate::theme::space(1.0))
                 .flex_shrink_0()
                 .items_center()
                 .text_color(theme::solid(theme::toolbar_text()))
-                .children(zoom(toolbar))
-                .child(share(&toolbar.share))
+                .children(zoom_shown.then(|| zoom(toolbar)).flatten())
+                .child(crate::mods::share_slot().unwrap_or_else(|| share(&toolbar.share)))
                 .children(toolbar.chat.as_ref().map(panel_toggle)),
         )
 }

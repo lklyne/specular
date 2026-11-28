@@ -217,7 +217,11 @@ pub(super) fn update(
 ) -> Result<(), Response> {
     let id = EntityId::from(id);
     let before = (builder.trial.entity(&id).cloned()).ok_or_else(|| unknown_kind(at))?;
-    let sort = Sort::of(&before.kind);
+    let sort = Sort::of(&before.kind).ok_or_else(|| {
+        Response::bad_request(format!(
+            "{at}: a mod item's props change with `specular run item.set`"
+        ))
+    })?;
     let mut node = before
         .to_node()
         .map_err(|error| Response::error(500, error.to_string()))?;

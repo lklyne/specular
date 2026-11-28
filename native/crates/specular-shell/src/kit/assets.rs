@@ -19,12 +19,12 @@ icon_assets!(
         Image,
         Zap,
         ListEnd,
-        FolderCode,
         Keyboard,
         SquareTerminal,
         Sparkles,
         Download,
-        RefreshCw
+        RefreshCw,
+        Blocks
     ]
 );
 
@@ -47,8 +47,6 @@ pub(crate) enum ShellIcon {
     Zap,
     /// Comments for the origin wait in the queue.
     ListEnd,
-    /// A connected repo.
-    FolderCode,
     /// The shortcuts pane.
     Keyboard,
     /// The `specular` command.
@@ -59,6 +57,8 @@ pub(crate) enum ShellIcon {
     Download,
     /// Reading what is installed again.
     RefreshCw,
+    /// The mods pane.
+    Blocks,
 }
 
 impl IconNamed for ShellIcon {
@@ -72,12 +72,12 @@ impl IconNamed for ShellIcon {
             Self::Image => IconName::Image.path(),
             Self::Zap => IconName::Zap.path(),
             Self::ListEnd => IconName::ListEnd.path(),
-            Self::FolderCode => IconName::FolderCode.path(),
             Self::Keyboard => IconName::Keyboard.path(),
             Self::SquareTerminal => IconName::SquareTerminal.path(),
             Self::Sparkles => IconName::Sparkles.path(),
             Self::Download => IconName::Download.path(),
             Self::RefreshCw => IconName::RefreshCw.path(),
+            Self::Blocks => IconName::Blocks.path(),
         }
     }
 }

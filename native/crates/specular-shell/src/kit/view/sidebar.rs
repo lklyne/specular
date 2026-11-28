@@ -1,5 +1,6 @@
-//! The left sidebar, from [`SidebarModel`]: the space's canvases, then the
-//! Notes and Pages of the one that is showing.
+//! The left sidebar, from [`SidebarModel`]: the projects' canvases, each
+//! project under a head of its own when there are several (ADR 0062), then
+//! the section mods (`"section": "sidebar"`), such as Notes and Pages.
 //!
 //! Everything it shows and does is the model's: whether it is there at all,
 //! which sections are folded and which rows are open, each row's glyph and
@@ -14,35 +15,43 @@ use gpui_kit::component::menu::ContextMenuExt as _;
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, ParentElement as _,
-    SharedString, StatefulInteractiveElement as _, Styled as _, Window, div, px,
+    AnyElement, ClickEvent, Context, InteractiveElement as _, IntoElement, MouseButton,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
+    px,
 };
 use specular_interact::{
-    Action, CanvasRow, ControlId, Event, Icon, MenuTarget, SectionHead, SidebarModel, SidebarRow,
-    context_menu,
+    Action, CanvasRow, ControlId, Icon, MenuTarget, ProjectAction, ProjectSection, SectionHead,
+    SidebarButton, SidebarModel, context_menu,
 };
 
 use super::glyphs::{glyph, ink};
 use super::named::mark;
-use super::{ShellView, field, focus_canvas, menu, run, slot};
+use super::{ShellView, field, menu, run};
 use crate::canvas;
 use crate::theme;
 
+/// The title bar's height, the tab row's, and the room the traffic lights
+/// take at its left.
+const TITLE: f32 = 38.0;
+const TRAFFIC_LIGHTS: f32 = 86.0;
+/// The toggle on the title bar, as the tab row's: a 28 px box, a 16 px glyph.
+const TITLE_BUTTON: f32 = 28.0;
+const TITLE_GLYPH: f32 = 16.0;
 /// A head: `h-9 px-3`, its chevron `gap-1.5` after the title.
 const HEAD: f32 = 36.0;
 const HEAD_PAD: f32 = 12.0;
 /// The add button: `p-1.5` around a 14 px glyph.
 const ADD: f32 = 26.0;
-/// A row: 28 px tall, 22 in from the left and 16 from the right, 14 more
-/// for each level of depth.
+/// A project head's buttons, smaller than the add button so the pair sits
+/// close.
+const HEAD_BUTTON: f32 = 22.0;
+/// A row: 28 px tall, 22 in from the left and 16 from the right.
 const ROW: f32 = 28.0;
 const PAD_LEFT: f32 = 22.0;
 const PAD_RIGHT: f32 = 16.0;
-const STEP: f32 = 14.0;
-/// A row's glyph, and a fold chevron 16 px left of the row's content.
+/// A row's glyph, and a fold chevron.
 const ICON: f32 = 14.0;
 const FOLD: f32 = 12.0;
-const FOLD_LEFT: f32 = 16.0;
 
 fn muted() -> gpui_kit::Hsla {
     theme::tinted(theme::text_muted())
@@ -69,7 +78,7 @@ fn head(model: &SectionHead) -> impl IntoElement {
         .h(px(HEAD))
         .flex_1()
         .min_w_0()
-        .gap_1p5()
+        .gap(crate::theme::space(1.5))
         .items_center()
         .cursor_pointer()
         .font_weight(gpui_kit::FontWeight::MEDIUM)
@@ -84,25 +93,19 @@ fn head(model: &SectionHead) -> impl IntoElement {
         .on_click(move |_, window, cx| run(&toggle, window, cx))
 }
 
-/// A row of the list: filled when it is selected, and more faintly under
-/// the pointer.
-fn row_shell(id: &ControlId, selected: bool, depth: u8) -> gpui_kit::Stateful<gpui_kit::Div> {
+/// A row of the list, filled faintly under the pointer.
+fn row_shell(id: &ControlId) -> gpui_kit::Stateful<gpui_kit::Div> {
     h_flex()
         .id(element_id(id))
         .relative()
         .h(px(ROW))
         .flex_shrink_0()
-        .pl(px(PAD_LEFT + f32::from(depth) * STEP))
+        .pl(px(PAD_LEFT))
         .pr(px(PAD_RIGHT))
-        .gap_2()
+        .gap(crate::theme::space(2.0))
         .items_center()
         .cursor_pointer()
-        .when(selected, |this| {
-            this.bg(theme::tinted(theme::row_selected()))
-        })
-        .when(!selected, |this| {
-            this.hover(|this| this.bg(theme::tinted(theme::row_hover())))
-        })
+        .hover(|this| this.bg(theme::tinted(theme::row_hover())))
         .child(mark(id))
 }
 
@@ -114,71 +117,7 @@ fn label(text: &str) -> impl IntoElement {
         .child(SharedString::from(text.to_owned()))
 }
 
-/// The chevron that opens and closes the rows inside a row.
-fn fold(row: &SidebarRow, toggle: &Action, open: bool) -> impl IntoElement {
-    let toggle = toggle.clone();
-    let chevron = if open {
-        Icon::ChevronDown
-    } else {
-        Icon::ChevronRight
-    };
-    div()
-        .id(element_id(&row.id.child("toggle")))
-        .absolute()
-        .left(px(-FOLD_LEFT - 2.0))
-        .top(px((ICON - ROW) / 2.0))
-        .w(px(FOLD + 4.0))
-        .h(px(ROW))
-        .flex()
-        .items_center()
-        .justify_center()
-        .child(small(chevron, theme::glyph_muted(), FOLD))
-        .child(mark(&row.id.child("toggle")))
-        .on_click(move |_, window, cx| {
-            cx.stop_propagation();
-            run(&toggle, window, cx);
-        })
-}
-
 impl ShellView {
-    /// `row` and, while it is open, the rows inside it.
-    fn rows(row: &SidebarRow, depth: u8, out: &mut Vec<AnyElement>, cx: &mut Context<'_, Self>) {
-        // Pressed by name, so the app widens or narrows the selection by
-        // the keys held, as it does for a script.
-        let id = row.id.clone();
-        let click = cx.listener(move |_, event: &ClickEvent, window, cx| {
-            canvas::dispatch(Event::Control(
-                id.clone(),
-                slot::modifiers(event.modifiers()),
-            ));
-            focus_canvas(window, cx);
-        });
-        let trailing = row.trailing.clone().map(SharedString::from);
-        // The chevron hangs off the glyph's left edge.
-        let folds = row.toggle.as_ref().zip(row.expanded);
-        let glyph_box = div()
-            .relative()
-            .flex_shrink_0()
-            .child(small(row.glyph, theme::glyph_muted(), ICON))
-            .when_some(folds, |this, (toggle, open)| {
-                this.child(fold(row, toggle, open))
-            });
-        let item = row_shell(&row.id, row.selected, depth)
-            .when(row.dimmed, |this| this.opacity(0.5))
-            .on_click(click)
-            .child(glyph_box)
-            .child(label(&row.label))
-            .when_some(trailing, |this, text| {
-                this.child(div().flex_shrink_0().text_color(muted()).child(text))
-            });
-        out.push(item.into_any_element());
-        if row.expanded == Some(true) {
-            for child in &row.children {
-                Self::rows(child, depth.saturating_add(1), out, cx);
-            }
-        }
-    }
-
     fn canvas_row(row: &CanvasRow, window: &mut Window, cx: &mut Context<'_, Self>) -> AnyElement {
         let renaming = field::is_inline(&row.rename.id, cx);
         let name = if renaming {
@@ -191,7 +130,7 @@ impl ShellView {
             label(&row.label).into_any_element()
         };
         let (action, rename) = (row.action.clone(), row.rename.clone());
-        let item = row_shell(&row.control, false, 0)
+        let item = row_shell(&row.control)
             .on_click(move |event: &ClickEvent, window, cx| {
                 if field::is_inline(&rename.id, cx) {
                     return;
@@ -223,34 +162,6 @@ impl ShellView {
             .into_any_element()
     }
 
-    /// The notes and pages sections, each under its head unless folded.
-    fn item_sections(model: &SidebarModel, cx: &mut Context<'_, Self>) -> impl IntoElement {
-        let mut sections = v_flex().flex_shrink_0().py_2();
-        for (section, rows) in [
-            (&model.notes_head, &model.notes),
-            (&model.pages_head, &model.pages),
-        ] {
-            sections = sections.child(h_flex().px(px(HEAD_PAD)).child(head(section)));
-            if !section.folded {
-                let mut items = Vec::new();
-                for row in rows {
-                    Self::rows(row, 0, &mut items, cx);
-                }
-                sections = sections.children(items);
-            }
-        }
-        if model.is_empty() {
-            sections = sections.child(
-                div()
-                    .px(px(PAD_LEFT))
-                    .py_1()
-                    .text_color(muted())
-                    .child("No items"),
-            );
-        }
-        sections
-    }
-
     /// The sidebar for `model`, over the canvas's left edge under the
     /// toolbar. The app counts that strip as covered whenever the model is
     /// visible, which is exactly when this is drawn.
@@ -259,19 +170,44 @@ impl ShellView {
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> impl IntoElement {
-        let folded = model.canvases_head.folded;
+        let sections = crate::mods::sidebar_sections();
+        // With no section mods the canvases are all the sidebar holds, so
+        // they need no head of their own: each project's head has the + for
+        // a new canvas in it.
+        let titled = !sections.is_empty();
+        let folded = titled && model.canvases_head.folded;
         let mut list = v_flex()
             .id("sidebar-rows")
             .flex_1()
             .min_h_0()
             .overflow_y_scroll();
         if !folded {
-            let canvases: Vec<AnyElement> = (model.canvases.iter())
-                .map(|row| Self::canvas_row(row, window, cx))
-                .collect();
-            list = list.child(v_flex().flex_shrink_0().pt_0p5().pb_2().children(canvases));
+            let mut canvases: Vec<AnyElement> = Vec::new();
+            if model.projects.len() > 1 || (!titled && !model.projects.is_empty()) {
+                for (n, project) in model.projects.iter().enumerate() {
+                    let mut group = v_flex()
+                        .flex_shrink_0()
+                        .when(n > 0, |this| this.pt(crate::theme::space(3.0)))
+                        .child(project_head(project));
+                    if !project.folded {
+                        group = group.children(
+                            (project.canvases.iter()).map(|row| Self::canvas_row(row, window, cx)),
+                        );
+                    }
+                    canvases.push(group.into_any_element());
+                }
+            } else {
+                canvases
+                    .extend((model.canvases.iter()).map(|row| Self::canvas_row(row, window, cx)));
+            }
+            list = list.child(
+                v_flex()
+                    .flex_shrink_0()
+                    .pt(crate::theme::space(if titled { 0.5 } else { 2.0 }))
+                    .pb(crate::theme::space(2.0))
+                    .children(canvases),
+            );
         }
-        let sections = Self::item_sections(model, cx);
         let rule = || {
             div()
                 .h(px(1.0))
@@ -281,18 +217,106 @@ impl ShellView {
         v_flex()
             .id("sidebar")
             .occlude()
-            .absolute()
-            .left_0()
-            .top(px(theme::CHROME_HEIGHT))
-            .bottom_0()
-            .w(px(theme::SIDEBAR_WIDTH))
-            .bg(theme::solid(theme::panel()))
-            .border_r_1()
+            .size_full()
+            .bg(super::material::panel_fill(theme::panel()))
+            .border_r(crate::theme::line())
             .border_color(theme::solid(theme::chrome_border()))
-            .child(canvases_head(model))
+            .children(model.title.as_ref().map(title_bar))
+            .when(titled, |this| this.child(canvases_head(model)))
             .when(folded, |this| this.child(rule()))
-            .child(list.child(rule()).child(sections))
+            .child(list.when(titled, |this| {
+                this.child(rule()).child(
+                    v_flex()
+                        .flex_shrink_0()
+                        .py(crate::theme::space(2.0))
+                        .children(sections),
+                )
+            }))
+            .child(rule())
+            .child(footer())
     }
+}
+
+/// The sidebar's top while it reaches the window's top edge: bare title
+/// bar to drag the window by, with the traffic lights and then the
+/// sidebar's own toggle on it.
+fn title_bar(toggle: &SidebarButton) -> impl IntoElement {
+    div()
+        .relative()
+        .h(px(TITLE))
+        .flex_shrink_0()
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .child(super::tabs::window_drag()),
+        )
+        .child(
+            h_flex()
+                .absolute()
+                .top_0()
+                .left(px(TRAFFIC_LIGHTS))
+                .h(px(TITLE))
+                .items_center()
+                .child(title_toggle(toggle)),
+        )
+}
+
+/// The sidebar's toggle on its title bar: the same box and glyph as the
+/// tab row's mod draws while the sidebar is hidden, so it does not change
+/// as the sidebar opens and closes.
+fn title_toggle(toggle: &SidebarButton) -> impl IntoElement {
+    let action = toggle.action.clone();
+    div()
+        .id(element_id(&toggle.id))
+        .size(px(TITLE_BUTTON))
+        .flex()
+        .items_center()
+        .justify_center()
+        .rounded(crate::theme::corner(8.0))
+        .cursor_pointer()
+        .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+        .tooltip(crate::tip::view(toggle.label.to_string()))
+        .child(glyph(
+            toggle.icon,
+            ink(theme::toolbar_text()),
+            None,
+            false,
+            TITLE_GLYPH,
+        ))
+        .child(mark(&toggle.id))
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
+/// The foot of the sidebar: a button that opens a folder or a repo as a
+/// project.
+fn footer() -> impl IntoElement {
+    let id = ControlId::new("sidebar.open");
+    let open = Action::Project(ProjectAction::Open);
+    h_flex()
+        .h(px(HEAD))
+        .flex_shrink_0()
+        .px(px(HEAD_PAD))
+        .items_center()
+        .child(
+            h_flex()
+                .id(element_id(&id))
+                .h(px(ADD))
+                .px(crate::theme::space(1.5))
+                .gap(crate::theme::space(1.5))
+                .items_center()
+                .rounded(crate::theme::corner(8.0))
+                .cursor_pointer()
+                .text_color(muted())
+                .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+                .tooltip(crate::tip::view("Open a folder or a repo as a project"))
+                .child(small(Icon::Plus, theme::text_muted(), ICON))
+                .child("New project")
+                .child(mark(&id))
+                .on_click(move |_, window, cx| run(&open, window, cx)),
+        )
 }
 
 /// The canvases' head and its button for a new canvas.
@@ -302,7 +326,7 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
         .h(px(HEAD))
         .flex_shrink_0()
         .px(px(HEAD_PAD))
-        .gap_1()
+        .gap(crate::theme::space(1.0))
         .items_center()
         .child(head(&model.canvases_head))
         .child(
@@ -313,7 +337,7 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
                 .flex_shrink_0()
                 .items_center()
                 .justify_center()
-                .rounded(px(8.0))
+                .rounded(crate::theme::corner(8.0))
                 .cursor_pointer()
                 .hover(|this| this.bg(theme::tinted(theme::row_selected())))
                 .tooltip(crate::tip::view("New canvas"))
@@ -321,4 +345,83 @@ fn canvases_head(model: &SidebarModel) -> impl IntoElement {
                 .child(mark(&ControlId::new("sidebar.add")))
                 .on_click(move |_, window, cx| run(&add, window, cx)),
         )
+}
+
+/// A project's head in the canvases list: its name and branch, which fold
+/// it. Under the pointer it shows a button for a new canvas in it and, at
+/// the far right, the fold chevron.
+/// A button on a project's head: a glyph in a box filled under the pointer.
+fn head_button(id: &ControlId) -> gpui_kit::Stateful<gpui_kit::Div> {
+    div()
+        .id(element_id(id))
+        .size(px(HEAD_BUTTON))
+        .flex()
+        .flex_shrink_0()
+        .items_center()
+        .justify_center()
+        .rounded(crate::theme::corner(6.0))
+        .hover(|this| this.bg(theme::tinted(theme::row_selected())))
+}
+
+fn project_head(project: &ProjectSection) -> impl IntoElement {
+    const HOVERED: &str = "project-head";
+    let toggle = project.toggle.clone();
+    let add = project.add_canvas.clone();
+    let add_id = project.control.child("add");
+    let title = match &project.branch {
+        Some(branch) => format!("{} \u{b7} {branch}", project.label),
+        None => project.label.clone(),
+    };
+    let chevron = if project.folded {
+        Icon::ChevronRight
+    } else {
+        Icon::ChevronDown
+    };
+    h_flex()
+        .id(element_id(&project.control))
+        .group(HOVERED)
+        .h(px(ROW))
+        .flex_shrink_0()
+        .pl(px(HEAD_PAD))
+        .pr(px(HEAD_PAD))
+        .gap(crate::theme::space(1.0))
+        .items_center()
+        .cursor_pointer()
+        .text_color(if project.active {
+            theme::tinted(theme::text())
+        } else {
+            muted()
+        })
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .truncate()
+                .child(SharedString::from(title)),
+        )
+        .child(
+            h_flex()
+                .flex_shrink_0()
+                .gap(crate::theme::space(0.5))
+                .invisible()
+                .group_hover(HOVERED, gpui_kit::Styled::visible)
+                .child(
+                    head_button(&add_id)
+                        .tooltip(crate::tip::view("New canvas in this project"))
+                        .child(small(Icon::Plus, theme::text_muted(), ICON))
+                        .child(mark(&add_id))
+                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                        .on_click(move |_, window, cx| {
+                            cx.stop_propagation();
+                            run(&add, window, cx);
+                        }),
+                )
+                .child(head_button(&project.control.child("fold")).child(small(
+                    chevron,
+                    theme::text_muted(),
+                    FOLD,
+                ))),
+        )
+        .child(mark(&project.control))
+        .on_click(move |_, window, cx| run(&toggle, window, cx))
 }

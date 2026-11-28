@@ -1,5 +1,5 @@
-//! The left sidebar, as data: the Canvases list and the Notes and Pages
-//! sections of the active canvas.
+//! The left sidebar, as data: the projects and their canvases (ADR 0062),
+//! and the Notes and Pages sections of the active canvas.
 //!
 //! Like [`menus`](crate::menus), this is a pure reading of the [`App`].
 //! Every row and control carries the [`Action`] a click on it sends, and
@@ -9,15 +9,18 @@
 //! none of it.
 
 mod pick;
+mod projects;
 mod rows;
 mod state;
 
 use specular_doc::EntityId;
 
 pub(crate) use self::pick::picked;
+pub(crate) use self::projects::project_controls;
+pub use self::projects::{OriginRow, ProjectSection};
 use self::rows::{Tree, leaves};
-pub use self::state::{SIDEBAR_WIDTH, SidebarAction, SidebarSection, SidebarView};
-use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon};
+pub use self::state::{SidebarAction, SidebarSection, SidebarView};
+use crate::panel::{ControlId, Field, FieldSubmit, FieldWidth, Icon, SidebarButton};
 use crate::{Action, App, CanvasAction, CanvasId};
 
 /// Everything the sidebar shows.
@@ -29,8 +32,11 @@ pub struct SidebarModel {
     pub(crate) toggle: Action,
     /// The head of the Canvases list.
     pub canvases_head: SectionHead,
-    /// The canvases of the space, in its order.
+    /// The canvases of the space, in its order: each project's in turn.
     pub canvases: Vec<CanvasRow>,
+    /// The projects, each with its canvases, in the sidebar's order. Empty
+    /// for canvases in no folder.
+    pub projects: Vec<ProjectSection>,
     /// What the add button next to the Canvases head sends.
     pub add_canvas: Action,
     /// The head of the Notes section.
@@ -43,12 +49,28 @@ pub struct SidebarModel {
     /// The Pages section: the active canvas's pages, front of the stack
     /// first, each with what is hooked to it.
     pub pages: Vec<SidebarRow>,
+    /// The sidebar's own toggle, beside the traffic lights at its top,
+    /// while it reaches the window's top edge. Otherwise the tab row has it.
+    pub title: Option<SidebarButton>,
+    /// Where it is drawn, `[x, top, width]`, for the strip over its right
+    /// edge that drags it wider, while it is drawn.
+    pub edge: Option<[f32; 3]>,
 }
 
-impl SidebarModel {
-    /// Whether the canvas has nothing for either section to list.
-    pub fn is_empty(&self) -> bool {
-        self.notes.is_empty() && self.pages.is_empty()
+/// The button that shows or hides the sidebar.
+pub(crate) fn sidebar_toggle(app: &App) -> SidebarButton {
+    let open = app.session.sidebar.shown();
+    SidebarButton {
+        id: ControlId::new("sidebar.toggle"),
+        label: if open {
+            "Collapse left panel"
+        } else {
+            "Expand left panel"
+        }
+        .into(),
+        icon: Icon::PanelLeft,
+        open,
+        action: Action::Sidebar(SidebarAction::Toggle),
     }
 }
 
@@ -80,6 +102,8 @@ pub struct CanvasRow {
     pub active: bool,
     /// How many entities it holds.
     pub entity_count: usize,
+    /// The project it is in.
+    pub project: crate::ProjectId,
     /// What a click sends: a switch to it.
     pub action: Action,
     /// The field that renames it in place. Its value is the name, and an
@@ -175,6 +199,7 @@ pub fn sidebar(app: &App) -> SidebarModel {
                 active: canvas.is_active(),
                 entity_count: (app.canvas_document(&canvas.id))
                     .map_or(0, |document| document.entities().count()),
+                project: canvas.project.clone(),
                 action: Action::Canvas(CanvasAction::Switch(canvas.id.clone())),
                 rename: Field {
                     id: id.child("name"),
@@ -203,16 +228,20 @@ pub fn sidebar(app: &App) -> SidebarModel {
         canvases_head.title.clone_from(&active.label);
     }
     let rows = Tree::new(app).top_rows();
+    let projects = projects::sections(app, &canvases);
     SidebarModel {
         visible: view.shown(),
         toggle: Action::Sidebar(SidebarAction::Toggle),
         canvases_head,
         canvases,
-        add_canvas: Action::Canvas(CanvasAction::New),
+        projects,
+        add_canvas: Action::Canvas(CanvasAction::New(None)),
         notes_head: head(SidebarSection::Notes, "notes", "Notes"),
         notes: partition(&rows, SidebarSection::Notes, view),
         pages_head: head(SidebarSection::Pages, "pages", "Pages"),
         pages: partition(&rows, SidebarSection::Pages, view),
+        title: app.sidebar_holds_title().then(|| sidebar_toggle(app)),
+        edge: (app.sidebar_frame()).map(|frame| [frame.x, frame.y, frame.width]),
     }
 }
 

@@ -123,7 +123,8 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                 | Kind::File(_)
                 | Kind::Group(_)
                 | Kind::Drawing(_)
-                | Kind::Shape(_) => (lock, min),
+                | Kind::Shape(_)
+                | Kind::Mod(_) => (lock, min),
             };
             let rect = resize::resized(from, drag.handle, target, min, lock);
             // A handle that has not moved its edges changes nothing, so a
@@ -149,7 +150,8 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
                         | Kind::Text(_)
                         | Kind::File(_)
                         | Kind::Group(_)
-                        | Kind::Shape(_),
+                        | Kind::Shape(_)
+                        | Kind::Mod(_),
                     )
                     | None => None,
                 };
@@ -157,6 +159,40 @@ pub(crate) fn drag(app: &mut App, drag: &ResizeDrag, world: DVec2, modifiers: Mo
             }
             live::follow(&mut app.document, &drag.followers);
         }
+    }
+}
+
+/// The edges `handle` holds still: a left or top handle moves its own edge
+/// and keeps the opposite one.
+const fn pin_of(handle: Handle) -> crate::FramePin {
+    let right = matches!(
+        handle,
+        Handle::Side(EdgeSide::Left) | Handle::Corner(Corner::TopLeft | Corner::BottomLeft)
+    );
+    let bottom = matches!(
+        handle,
+        Handle::Side(EdgeSide::Top) | Handle::Corner(Corner::TopLeft | Corner::TopRight)
+    );
+    crate::FramePin { right, bottom }
+}
+
+/// Remembers, for each page `drag` resizes, the edges its handle holds
+/// still. A page's frame lags its rect while it is resized; drawn against
+/// the held edges it stays put under the pointer instead of sliding with
+/// the moving edge.
+pub(crate) fn pin_frames(app: &mut App, drag: &ResizeDrag) {
+    let pin = pin_of(drag.handle);
+    for start in &drag.starts {
+        app.session.frame_pins.insert(start.id.clone(), pin);
+    }
+}
+
+impl App {
+    /// Which corner of page `id`'s rect a frame painted at another size is
+    /// drawn from: the corner its last handle resize held still, else the
+    /// top-left.
+    pub fn frame_pin(&self, id: &EntityId) -> crate::FramePin {
+        self.session.frame_pins.get(id).copied().unwrap_or_default()
     }
 }
 
@@ -182,9 +218,8 @@ fn resized_kind(
             (rect, Some(scaled(drawing, start.rect, stored)))
         }
         Some(Kind::Text(text)) => resized_text(app, text, from, handle, rect),
-        Some(Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_)) | None => {
-            (rect, None)
-        }
+        Some(Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) | Kind::Mod(_))
+        | None => (rect, None),
     }
 }
 

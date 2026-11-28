@@ -16,9 +16,10 @@ mod artifacts;
 mod avatar;
 mod chips;
 mod composer;
+pub(crate) mod composer_box;
 mod date;
 mod header;
-mod paste;
+pub(crate) mod paste;
 mod run_bar;
 mod transcript;
 
@@ -76,7 +77,7 @@ impl ChatUi {
         // plain Enter and inserts nothing for it.
         let input = cx.new(|cx| {
             TextareaState::new(window, cx)
-                .auto_grow(composer::MIN_ROWS, composer::MAX_ROWS)
+                .auto_grow(composer_box::MIN_ROWS, composer_box::MAX_ROWS)
                 .submit_on_enter(true)
         });
         let events =
@@ -156,12 +157,9 @@ impl ShellView {
             v_flex()
                 .id("chat-panel")
                 .occlude()
-                .w(px(model.width))
-                .h_full()
-                .flex_shrink_0()
-                .pt(px(theme::CHROME_HEIGHT))
-                .bg(theme::solid(theme::panel()))
-                .border_l_1()
+                .size_full()
+                .bg(super::material::panel_fill(theme::panel()))
+                .border_l(crate::theme::line())
                 .border_color(theme::solid(theme::chrome_border()))
                 .child(self.chat_header(model, cx))
                 .child(body)
@@ -199,7 +197,7 @@ impl ShellView {
                 .id("chat-resize")
                 .occlude()
                 .absolute()
-                .top(px(theme::CHROME_HEIGHT))
+                .top(px(theme::chrome_top()))
                 .bottom_0()
                 .right(px(model.width - RESIZE_HANDLE / 2.0))
                 .w(px(RESIZE_HANDLE))

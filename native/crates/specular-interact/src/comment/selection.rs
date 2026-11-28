@@ -61,7 +61,12 @@ fn selection_target(document: &Document, ids: &[EntityId]) -> Option<Value> {
                 }
             }
             Some(
-                Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Drawing(_) | Kind::Shape(_),
+                Kind::Page(_)
+                | Kind::Text(_)
+                | Kind::File(_)
+                | Kind::Drawing(_)
+                | Kind::Shape(_)
+                | Kind::Mod(_),
             ) => add(id),
             None => {}
         }
@@ -71,7 +76,10 @@ fn selection_target(document: &Document, ids: &[EntityId]) -> Option<Value> {
         match document.entity(id).map(|entity| &entity.kind) {
             Some(Kind::Page(page)) => pages.push((id, page)),
             Some(Kind::File(file)) => files.push((id, file)),
-            Some(Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_)) | None => {}
+            Some(
+                Kind::Text(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Shape(_) | Kind::Mod(_),
+            )
+            | None => {}
         }
     }
     let mut target = JsonMap::new();

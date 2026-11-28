@@ -271,6 +271,7 @@ fn tool_takes_press(
         }
         Tool::Select => {
             comment::press(app, input.screen, effects)
+                || crate::note_tasks::press(app, input, effects)
                 || select::press(app, input, click_count, effects)
         }
         tool @ (Tool::AddPage
@@ -292,6 +293,12 @@ fn tool_takes_press(
         Tool::Draw => {
             let stroke = draw::begin(app, world);
             app.session.gesture = Some(Gesture::Draw(stroke));
+            true
+        }
+        Tool::Mod(id) => {
+            if let Some(word) = app.mods.catalog.tool_word(id) {
+                crate::mods::begin_stroke(app, word, world);
+            }
             true
         }
     }

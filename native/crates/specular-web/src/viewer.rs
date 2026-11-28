@@ -688,7 +688,7 @@ impl Viewer {
         // its text, changes without input: that is accepted as it comes.
         let unprompted = matches!(
             event,
-            Event::Note { .. } | Event::Image { .. } | Event::NoteHeights(_)
+            Event::Note { .. } | Event::Image { .. } | Event::NoteLayouts(_)
         );
         let mut queue = vec![event];
         while let Some(event) = queue.pop() {
@@ -771,8 +771,20 @@ impl Viewer {
             | Effect::ChooseSpace { .. }
             | Effect::OpenSpace(_)
             | Effect::RevealSpace
+            | Effect::ChooseProject
+            | Effect::OpenProject(_)
+            | Effect::RevealProject(_)
+            | Effect::SaveProjects
+            | Effect::WriteGitChoice(_)
+            | Effect::ProjectEntered
+            | Effect::CloseProject(_)
+            | Effect::LoadProjectThreads(_)
             | Effect::Quit
             | Effect::SaveSettings(_)
+            | Effect::SaveLayoutToggles(..)
+            | Effect::SaveActiveLayout(_)
+            | Effect::ResetLayout
+            | Effect::RunShell(_)
             | Effect::PreviewRegion { .. }
             | Effect::CaptureElement { .. }
             | Effect::TrackElements { .. }
@@ -789,7 +801,9 @@ impl Viewer {
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
             | Effect::RunAgent(_)
-            | Effect::CancelAgent(_) => {}
+            | Effect::CancelAgent(_)
+            | Effect::InstallMods(_)
+            | Effect::BundleMod(_) => {}
         }
     }
 

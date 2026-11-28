@@ -153,11 +153,18 @@ What a script can name, beyond the steps in "Looking at what it draws":
   page shown is entered, so send Escape before a canvas key, and a
   Document shown is a reading column that one click edits. See `tabs.txt`,
   `item-view.txt` and `lens.txt`.
-- The sidebar starts hidden (`sidebar on`, or Command+B). Its controls are
+- The sidebar starts hidden (`sidebar on`, Command+B, or `sidebar.toggle`,
+  in the tab row or, while the sidebar reaches the window's top, in the
+  sidebar beside the traffic lights). Its controls are
   `sidebar.canvas.<n>` (by place, from 1; `.name` is the rename field,
   `.menu.rename` and `.menu.delete` its menu), `sidebar.add`,
+  `sidebar.open` (Open project), `sidebar.project.<n>` (a project's head,
+  by place; `.add`, `.details`, `.reveal`, `.close`, `.git.commit`,
+  `.git.ignore`, `.origin.<k>.auto|remove` beside it),
   `sidebar.head.<canvases|notes|pages>`, `sidebar.<notes|pages>.<entity id>`
-  (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. Shift- and
+  (`.toggle` its chevron) and `sidebar.pages.comment.<id>`. The Notes and
+  Pages rows are drawn by the `notes` and `pages` section mods, off until
+  turned on in Settings > Mods. Shift- and
   Command-clicks on rows widen the selection, from the row picked last.
 - A right click opens the context menu for what is under it; its items
   are `menu.<label in lower case, dashes>`.
@@ -165,6 +172,14 @@ What a script can name, beyond the steps in "Looking at what it draws":
   a double click enters it, and only an entered page gets input.
 - A text field is pressed like a control and typed into; Enter keeps the
   text and Escape puts the old value back.
+- The window's regions are `tabs`, `toolbar`, `dock`, `sidebar` and
+  `chat` (ADR 0055). `run ui.toggle {"id":"toolbar"}` (and `ui.show`,
+  `ui.hide`, by a region or a control id) hides one over the layout file,
+  and the canvas takes its room; `key ctrl+alt+shift+escape` or `run
+  ui.reset` goes back to the shipped layout. `expect layout is region
+  toolbar hidden`, `expect layout is toggled toolbar hidden` and `expect
+  layout is insets LEFT TOP RIGHT BOTTOM` (what the canvas is seen
+  between, `App::insets`) check it. See `regions.txt`.
 
 ## Looking at what it draws
 
@@ -195,9 +210,9 @@ cargo run -p specular-shell -- --script steps.txt FILE.canvas
   (`release x y`), `drag x1 y1 x2 y2`, `hold shift+cmd` (`hold none`),
   `key cmd+z`, `type some text`, `compose にほ`, `commit 日本`,
   `wheel dx dy`, `scroll x y dx dy`, `pinch 0.2`, `tool shape`,
-  `select id ..`, `act ..` (`annotate-selection`, `resolve-comment`,
-  `page-back|forward|reload|stop`, `zoom-to-fit`, `arrange-row|column|grid`,
-  `toggle-sync`, `undo`, `redo`), `sidebar on|off`, `camera ..`, `wait ms`,
+  `select id ..`, `run NAME [json]` (a command of the registry,
+  `specular_interact::commands()`: `run edit.undo`, `run arrange.lay-out
+  {"mode":"row"}`), `sidebar on|off`, `camera ..`, `wait ms`,
   `motion on|off`, `reduce-motion on|off`, `page-opens-tab p1 URL
   [background]`, `control NAME`, `hover-control`, `press-control`. Positions
   are screen pixels.
@@ -252,6 +267,31 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   `specular-api/tests/api/` keeps what the CLI cannot reach (the page
   proxy, `Api::plan`, a write during a drag); `specular-shell/src/api/tests.rs`
   is the transport over a real socket.
+- What the app can do by name is one table, the command registry
+  (`specular-interact/src/commands/`, ADR 0055): the menus, the palette,
+  the context menu, the scripts' `run` step, `GET /commands`, `POST /run`
+  and the CLI's `commands` and `run` read it. A new command is a row
+  there; its label, if a menu shows it, is written there once.
+- What a mod reads is the keyed state (`specular-interact/src/state.rs`):
+  `panels/toolbar`, `panels/dock`, `theme`, `keys`, `layout` and the rest,
+  as JSON from `&App`. `GET /state` (`?key=` for one) and `specular state
+  [key]` answer it; the Kit window publishes it into a `Revisions` whose
+  per-key revision moves only when the value does. The camera is in no
+  key. Layouts are `<app home>/layouts/<name>.json` (ADR 0059): trees of
+  rows, columns, stacks and blocks with the look at the root, solved by
+  `specular_interact::chrome::solve`. The shipped ones (`default`, `mods`,
+  `classic`, `studio`) are rewritten on every start; any other file is the
+  person's, and `layout.switch` moves between them. `<app home>/keys.json`
+  rebinds keys (`bindings/keymap.rs`, read in `app/keys_run.rs`, a mistake
+  in `keys.error`). The files are watched by
+  `specular-shell/src/app/layout_run.rs`.
+- A page whose address is a file inside the space folder gets the page
+  bridge, `window.specular` (`state`, `run`, `commands`, `subscribe`):
+  the check is `specular_interact::bridge_allowed`, the messages are
+  `specular_api::bridge` (the `/state`, `/commands` and `/run` routes
+  planned without a socket), the transport is `specular-cef/src/bridge_*`
+  and `specular-shell/src/app/bridge_run.rs`. Sample:
+  `fixtures/bridge/space/widget.html`, run by `fixtures/scenarios/cef/bridge.txt`.
 - A route the CLI can call and this app lacks gets a row in `unported.rs`,
   so the caller reads which verb is missing instead of a 404.
 - The browse verbs (`snapshot`, `click`, ...) reach a page through its own
@@ -267,6 +307,98 @@ logs the port it took and the `SPECULAR_DISCOVERY_FILE=` to pass the CLI.
   answer, and `specular-interact/src/presence.rs` releases it when the
   cursor is there (ADR 0046). `RUST_LOG=specular_shell::app=debug` logs each
   act and its go.
+- The canvas verbs move the same cursor: `specular-interact/src/api.rs`
+  compares the document before and after a write whose caller sent a
+  session id (`x-specular-session-id`) and `presence/canvas.rs` sends the
+  cursor to what changed. A route needs no presence code of its own.
+  `POST /session/presence` with a `labelKey` (`scan_workspace`, `thinking`,
+  `departing`, ...) is `ApiRun::Report`.
+- Who is on the canvas is `App::agents()` and the `agents` state key
+  (`presence/roster.rs`); `view.follow` is `Action::Follow`
+  (`presence/follow.rs`). A camera move the person makes, or Escape, ends a
+  follow.
+
+### Mods
+
+A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
+`gpui-shell` in `crates/specular-mods`. The run log is
+`docs/plans/mods-run.md`.
+
+- **Where they live.** Mods are in `<app home>/mods/<name>/`. The shipped
+  ones live in `crates/specular-mods/mods/`, with the guide
+  (`mods/README.md`) and `specular.d.ts`. All are written there on every
+  start, except a folder whose `mod.json` has `cloned_from`. Each gets a
+  `.shipped` marker of what was written, so a mod no longer shipped is
+  removed only while its folder is untouched (`src/retired.rs`; mods
+  retired before the marker are listed there by hash). A new command
+  or state key must be named in both the guide and the d.ts; the test in
+  `tests/shipped.rs` fails otherwise.
+- **How a mod is placed.** A layout block's `content` names a mod
+  (`{"mod": "sidebar", "props": {..}}`) or one of the Kit's own panels
+  (`{"panel": "sidebar"}`), and the root names the overlays (`dock`,
+  `menu`, `share`, `toast`, `palette`, `welcome`) the same way; every
+  native panel stays as the fallback. `overlay.open` opens a copy of a mod
+  over the window (`specular-interact/src/overlays.rs`, drawn by
+  `kit/view/overlay_layer.rs`). `ModSet` loads the mods, publishes
+  `mods/<name>/props`, writes `<name>.error` and renders a mod only when a
+  key it read moved. The window's side is `src/kit/mods.rs`,
+  `src/kit/mods/host.rs` and `src/kit/view/mod_bar.rs` (where each mod is
+  drawn); the menu mod is placed in `view/canvas_menu.rs`.
+- **The shipped mods.** `toolbar`, `tabs`, `share` and `toast` are in
+  `default`. The `mods` layout also uses `sidebar`, `dock`, `palette`,
+  `chat`, `menu` and `welcome`; `confirm` and `prompt` are dialogs any mod
+  opens, `status` is `studio`'s status bar, and `star` is the example
+  mod shape. A text field in a mod is the `Field` host component
+  (`kit/mods/text_field.rs`), its text on `shared/field/<id>`.
+- **What a mod can call.** `run` resolves through `run_named` and the work
+  is deferred out of the script call. Rust-drawn pieces are host
+  components (`Components`): `Icon`, `Zoom`, `ToolOptions`, `Favicon`,
+  `WindowDrag`, `Share`, `Prism`, `Field`, `Composer`, `Material`. A layout node's
+  `material` and `Material` are system views under GPUI
+  (`kit/view/material.rs`, ADR 0061). Headless, the window-only ones are
+  placeholders. A new one goes in `HOST_COMPONENTS`, the d.ts and the
+  guide; the window's version in `kit/mods/host.rs`.
+- **Canvas items, tools and commands (ADR 0057, API 1.1).** The app's
+  side is `specular-interact/src/mods/`: the catalog the shell scans
+  (`Event::ModCatalog`), `ModAction`, the `canvas/mod_items`, `tool` and
+  `call` keys, the install notice. A mod item is `Kind::Mod`
+  (`specular-doc/src/mod_item.rs`, `mod_draw.rs`) drawn by
+  `specular-scene/src/view/mod_item.rs`; the shell's side is
+  `app/mods_run.rs`. Mods with items, tools or commands run out of sight
+  (`ModSet::sync`'s `background`, `Mods::background`). The shipped
+  examples are `feed` and `watercolor`. A tool's `stroke` (API 1.6) is
+  drawn by the scene from `App::mod_trail`, and `publish_live` sends the
+  `tool` and `call` keys each turn, outside the models gate.
+- **The whole window (ADR 0059, API 1.2).** The state keys
+  `panels/sidebar`, `panels/chat`, `selection`, `canvas/items`,
+  `canvas/info`, `layouts`, `look` and `overlays`
+  (`specular-interact/src/state/panels.rs`), the `chat.*` and
+  `overlay.*` commands, and a mod tool with `"group": "shape"` listed in
+  the shape tool's options (`panel/dock/shape.rs`).
+- **Mod shapes (ADR 0060, API 1.4).** `shapes` in `mod.json` give
+  `ShapeKind::Custom` shapes (`specular-doc/src/custom_shape.rs`) that the
+  shape tool, the dock (`panel/dock/shape.rs`) and `view` treat as any
+  shape; `shape.set` (`specular-interact/src/mods/shape.rs`) reshapes them.
+- **Threads anywhere (API 1.3).** `chat/threads` and a `chat/thread/<id>`
+  key for each thread of the active canvas
+  (`specular-interact/src/state/chat.rs`), published beside the fixed
+  keys (`is_state_key` names both); `chat.new-thread {id, open}`,
+  `chat.send {thread, images}` (starting a thread not made yet) and `chat.stop {thread}`. The panel's composer is the `Composer` host component (`kit/mods/composer.rs`, on `view/chat/composer_box.rs`), and web pages load `mods/lib/chat.js` (`<specular-chat>`, `<specular-thread>`, `<specular-composer>`). A mod command with
+  `"chat": true` is a button in the agent panel's header (`HeaderAction`,
+  `mods::chat_buttons`), and the `thread` mod makes a thread a web canvas
+  item.
+- **Checking and measuring.** `specular mod check <dir> [--state
+  fixture.json]` (the `specular-mod-check` crate) renders a mod headless.
+  `specular mod stats` is `GET /mods`. `specular mod clone <name>
+  [new-name] [--use]` copies a mod to one the person owns. `specular shot
+  [file.png]` is `POST /window/screenshot`, the canvas as a PNG.
+  `specular --skill` prints `crates/specular-cli/src/SKILL.md`, the manual
+  the short `specular-mods` skill points agents to. The gates are
+  `cargo test -p specular-mods --release --test toolbar` and `--test
+  panels` (`-- --nocapture` for the numbers): median under 2 ms, none
+  over 8 ms of thread CPU, no render while idle or on a camera move, every id the
+  native model lists, a click reaching the host. A new panel's gate goes
+  in `tests/panels/`, on `tests/support/`.
 
 ## Gate
 

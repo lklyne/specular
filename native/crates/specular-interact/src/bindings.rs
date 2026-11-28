@@ -8,9 +8,11 @@
 //! An entered page has every key but the ones [`kept_from_page`] lists, as
 //! a browser's content has every key its chrome does not keep.
 
+mod keymap;
 mod route;
 mod shell;
 
+pub use self::keymap::{KeyRow, KeySection, Keymap};
 pub(crate) use self::route::{binding_for, on_key, page_edit, page_edit_for};
 pub use self::shell::{SHELL_KEYS, ShellCommand, kept_from_page};
 
@@ -18,7 +20,8 @@ use specular_doc::{BrushType, ItemId, Kind, ShapeKind};
 
 use crate::PageStep;
 use crate::{
-    Action, App, Chord, Focus, Format, Key, SidebarAction, Tool, ToolDefaultPatch, grid, page_state,
+    Action, App, Chord, Focus, Format, Key, LayoutAction, SidebarAction, Tool, ToolDefaultPatch,
+    grid, page_state,
 };
 
 /// How far an arrow key moves the selection, in canvas units. Shift moves it
@@ -323,6 +326,13 @@ pub const BINDINGS: &[Binding] = &[
         Chord::char('l').cmd(),
         Context::PageTarget,
         Action::EditPageUrl,
+    ),
+    // Control+Shift+L folds into this row too: a chord reads Control as
+    // Command.
+    once(
+        Chord::char('l').cmd().shift(),
+        Context::CanvasOrEditing,
+        Action::Layout(LayoutAction::Switch(None)),
     ),
     // How a page is shown. Command+Option keeps them clear of a browser's
     // own keys, which a page expects to get.

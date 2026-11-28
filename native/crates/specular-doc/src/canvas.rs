@@ -22,7 +22,7 @@ use std::collections::{HashMap, HashSet};
 use serde_json::Value;
 
 use self::fields::{fill, read_loose, take, tidy_numbers, write_loose};
-use crate::{Annotation, Command, CommandError, Document, Edge, Entity, JsonMap};
+use crate::{Annotation, Command, CommandError, Document, Edge, Entity, JsonMap, Kind, ModNeed};
 
 /// Why a `.canvas` file could not be read or written.
 #[derive(Debug, thiserror::Error)]
@@ -49,6 +49,7 @@ const EDGES: &str = "edges";
 const ANNOTATIONS: &str = "annotations";
 const SPECULAR: &str = "specular";
 const ENTITY_ORDER: &str = "entityOrder";
+const MODS: &str = "mods";
 
 /// An entity or edge waiting for its slot in the stack order.
 enum Item {
@@ -153,6 +154,15 @@ impl Document {
 
         let mut specular: JsonMap = take(&mut top, SPECULAR).unwrap_or_default();
         let saved_order: Vec<String> = take(&mut specular, ENTITY_ORDER).unwrap_or_default();
+        let needs: Vec<ModNeed> = take(&mut specular, MODS).unwrap_or_default();
+        for item in items.values_mut() {
+            if let Item::Entity(entity) = item
+                && let Kind::Mod(mod_item) = &mut entity.kind
+                && let Some(need) = needs.iter().find(|need| need.name == mod_item.name)
+            {
+                mod_item.api.clone_from(&need.api);
+            }
+        }
 
         // The saved order first, then anything it does not list, in file
         // order. Ids it lists that no longer exist are skipped.
@@ -213,6 +223,13 @@ impl Document {
         if !self.order().is_empty() {
             let order = self.order().iter().map(|item| Value::from(item.as_str()));
             specular.insert(ENTITY_ORDER.to_owned(), order.collect());
+        }
+        let needs = self.mod_needs();
+        if !needs.is_empty() {
+            let needs = needs
+                .iter()
+                .filter_map(|need| serde_json::to_value(need).ok());
+            specular.insert(MODS.to_owned(), needs.collect());
         }
         if let Some(Value::Object(leftover)) = extra.get(SPECULAR) {
             fill(&mut specular, leftover);

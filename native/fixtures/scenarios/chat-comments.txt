@@ -32,10 +32,10 @@ expect chat has send-empty yes
 expect chat has pill Comment "move this"
 expect comments has "move this" thread thread_
 # chat is not undoable: the thread keeps its message
-act undo
+run edit.undo
 expect count comments 0
 expect chat has stored "move this" draft messages 1
-act redo
+run edit.redo
 
 # a draft with nothing to send stays open
 click 600 650
@@ -152,9 +152,9 @@ agent-says finished done
 expect chat has open-comments
 chat resolve
 expect chat lacks open-comments
-act undo
+run edit.undo
 expect chat has open-comments 2
-act redo
+run edit.redo
 expect comments count 0 pending
 
 chat close

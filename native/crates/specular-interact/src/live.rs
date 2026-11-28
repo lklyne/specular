@@ -23,7 +23,7 @@ impl Start {
             // A drawing's points move with it, and a text's size follows a
             // resize.
             Kind::Drawing(_) | Kind::Text(_) => Some(entity.kind.clone()),
-            Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => None,
+            Kind::Page(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) | Kind::Mod(_) => None,
         };
         Self {
             id: entity.id.clone(),
@@ -43,7 +43,8 @@ impl Start {
                 | Kind::Text(_)
                 | Kind::File(_)
                 | Kind::Group(_)
-                | Kind::Shape(_)),
+                | Kind::Shape(_)
+                | Kind::Mod(_)),
             ) => Some(kind.clone()),
             None => None,
         };

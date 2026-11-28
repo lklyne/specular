@@ -15,11 +15,12 @@ use self::pacing::{LinkRest, ModelGate};
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
 use specular_interact::panel::ContextMenu;
-use specular_interact::{ControlsModel, Event, context_menu};
+use specular_interact::{ControlId, ControlsModel, Event, Revisions, ToolbarModel, context_menu};
 use specular_shell::{Bench, Runtime, ShellWindow as _};
 
 use crate::surface::{CanvasSurface, WindowAsks};
@@ -37,6 +38,10 @@ pub(crate) struct Canvas {
     /// What effects asked of the window.
     pub(crate) asks: Rc<WindowAsks>,
     models: Models,
+    /// The app as keyed state, published each time the models are read,
+    /// with a revision per key that moves only when its value does. Shared
+    /// with the mods, which read it as they render.
+    state: Rc<RefCell<Revisions>>,
     /// Whether the app may have changed since the models were read.
     stale: bool,
     /// Whether the models changed since GPUI was last told.
@@ -120,6 +125,7 @@ pub(crate) fn install(
         runtime,
         asks,
         models,
+        state: Rc::default(),
         stale: false,
         unseen: false,
         gate: ModelGate::default(),
@@ -163,6 +169,32 @@ pub(crate) fn models() -> Option<Models> {
         }
         canvas.models.clone()
     })
+}
+
+/// The toolbar's model and the options of the tool in hand, as last read:
+/// what the window's own `Zoom` and `ToolOptions` draw inside a mod.
+pub(crate) fn tool_models() -> Option<(ToolbarModel, Option<ControlsModel>)> {
+    with(|canvas| {
+        (
+            canvas.models.toolbar.clone(),
+            canvas.models.tool_options.clone(),
+        )
+    })
+}
+
+/// The page's own icon on the tab `id`, as last read, when it has one.
+pub(crate) fn favicon(id: &ControlId) -> Option<Arc<[u8]>> {
+    with(|canvas| {
+        (canvas.models.strip.tabs.iter())
+            .find(|tab| tab.id == *id)
+            .and_then(|tab| tab.favicon.clone())
+    })
+    .flatten()
+}
+
+/// The keyed state the mods read, which the models' reading publishes.
+pub(crate) fn state() -> Option<Rc<RefCell<Revisions>>> {
+    with(|canvas| canvas.state.clone())
 }
 
 /// The context menu that is open, with its items as the app has them now.
@@ -260,6 +292,10 @@ impl Canvas {
         if let Some(scale) = rescaled {
             self.runtime.on_scale_factor_changed(f64::from(scale));
         }
+        if self.runtime.window().map(CanvasSurface::pixel_size) != configured {
+            // A surface at a new size holds nothing until it is drawn.
+            self.runtime.redraw();
+        }
         self.runtime.turn();
         let mut bench_turn = None;
         match self.bench.as_mut() {
@@ -331,6 +367,11 @@ impl Canvas {
     }
 
     /// The canvas slot's place in the window, from GPUI's layout.
+    ///
+    /// During a live resize GPUI lays out and paints inside each step of the
+    /// drag and presents in that step's transaction. So the canvas draws its
+    /// frame for the new size here and now, in the same transaction, rather
+    /// than at the display link's next tick, which is a frame or more late.
     pub(crate) fn set_slot(&mut self, origin: glam::Vec2, size: glam::Vec2) {
         let resized =
             (self.runtime.window_mut()).is_some_and(|surface| surface.set_slot(origin, size));
@@ -340,6 +381,10 @@ impl Canvas {
             if let Some(viewport) = viewport {
                 self.dispatch(Event::ViewportResized(viewport));
             }
+        }
+        if (self.runtime.window()).is_some_and(CanvasSurface::live_resizing) {
+            self.rest_until = None;
+            self.frame();
         }
     }
 }

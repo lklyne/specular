@@ -41,7 +41,12 @@ pub(crate) fn write_target(app: &App, pill: &Pill) -> WriteTarget {
             origin: origin_of(origin).unwrap_or_else(|| origin.to_owned()),
             repo_path: binding.repo_path.to_owned(),
         },
-        None => WriteTarget::Space,
+        None => match app.space.active_project() {
+            Some(project) if project.keeps_canvases_apart() => WriteTarget::Project {
+                folder: project.folder.clone(),
+            },
+            _ => WriteTarget::Space,
+        },
     }
 }
 

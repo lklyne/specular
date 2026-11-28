@@ -104,13 +104,13 @@ expect count comments 18
 # annotate a selection of two items
 tool select
 select page-shape page-drawing
-act annotate-selection
+run comment.annotate-selection
 type Both of these
 key enter
 expect count comments 19
 
 # resolve the focused comment, which is the one just made
-act resolve-comment
+run comment.resolve
 expect saved /annotations/-1/status = resolved
 
 # undo all of it. The click on empty canvas takes the keys back from the

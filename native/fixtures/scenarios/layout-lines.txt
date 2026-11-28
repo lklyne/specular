@@ -229,7 +229,7 @@ expect saved same-as start
 
 # a lone group is managed along the axis its members are spread on
 select lg
-act auto-layout
+run arrange.auto-layout
 expect saved /nodes/lg/layoutMode = column
 expect entity high rect 100 2300 100 100
 expect entity low rect 100 2480 100 100

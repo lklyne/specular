@@ -33,6 +33,7 @@ fn layer(drop: f32, blur: f32, spread: f32, color: u32, inset: bool) -> BoxShado
 /// The rim and the face, filling the control they are a child of. The face
 /// darkens a little into its bottom edge.
 fn surface(radius: f32) -> impl IntoElement {
+    let radius = theme::corner_points(radius);
     canvas(
         |_, _, _| (),
         move |bounds, (), window, _| {
@@ -48,12 +49,12 @@ fn surface(radius: f32) -> impl IntoElement {
                 );
             }
             let face = bounds.dilate(px(-RIM));
-            if let Some(fill) = squircle(face, radius - RIM) {
+            if let Some(fill) = squircle(face, (radius - RIM).max(0.0)) {
                 window.paint_path(fill, theme::solid(theme::raised_fill()));
             }
             window.paint_inset_shadows(
                 face,
-                Corners::all(px(radius - RIM)),
+                Corners::all(px((radius - RIM).max(0.0))),
                 &[layer(-2.0, 3.0, -2.0, theme::raised_shade(), true)],
             );
         },
@@ -68,6 +69,7 @@ fn surface(radius: f32) -> impl IntoElement {
 /// A flat squircle of `fill` and corners of `radius`, filling the element
 /// it is a child of: what a control that is not on shows under the pointer.
 pub(super) fn plate(radius: f32, fill: u32) -> impl IntoElement {
+    let radius = theme::corner_points(radius);
     canvas(
         |_, _, _| (),
         move |bounds, (), window, _| {
@@ -82,16 +84,18 @@ pub(super) fn plate(radius: f32, fill: u32) -> impl IntoElement {
 pub(super) trait Raised: Styled + ParentElement + Sized {
     /// Draws this control, whose corners are of `radius`, as the one that
     /// is on. The surface goes under the children added after it, and takes
-    /// the place of the control's own fill. The shadow under it is two
-    /// short ones, each drawn in from the sides so it shows below the
-    /// control and not around it. GPUI takes a blur as the gaussian's
-    /// deviation, half of what CSS calls the blur radius.
+    /// the place of the control's own fill. Under it are a hairline ring and
+    /// two soft shadows, the far one drawn in from the sides. GPUI takes a
+    /// blur as the gaussian's deviation, half of what CSS calls the blur
+    /// radius. All of it stays inside the 5 px round a tab in its row or a
+    /// tool in its column, so nothing drawn beside them cuts it off.
     fn raised(self, radius: f32) -> Self {
         let (near, far) = theme::raised_shadow();
         self.bg(transparent_black())
             .shadow(vec![
-                layer(1.0, 1.0, -1.0, near, false),
-                layer(2.0, 2.0, -2.0, far, false),
+                layer(0.0, 0.0, 0.5, theme::raised_ring(), false),
+                layer(1.0, 1.0, 0.0, near, false),
+                layer(1.0, 1.5, -1.0, far, false),
             ])
             .child(surface(radius))
     }

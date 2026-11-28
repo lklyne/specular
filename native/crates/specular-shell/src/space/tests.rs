@@ -2,6 +2,7 @@
 //! listed, and what each canvas operation leaves on disk.
 
 mod finding;
+mod projects;
 
 use std::path::{Path, PathBuf};
 
@@ -80,10 +81,10 @@ fn fake_trash(path: &Path) -> Result<(), String> {
 
 impl OnDisk {
     fn open(folder: &Path) -> Self {
-        let opened = open(folder, None, Camera::default()).unwrap();
+        let opened = open(folder, None, Camera::default(), None).unwrap();
         let mut on_disk = Self {
             app: App::new(7),
-            files: SpaceFiles::new(folder).with_trash(fake_trash),
+            files: SpaceFiles::new().with_trash(fake_trash),
         };
         on_disk.send(Event::SpaceOpened(Box::new(opened)));
         on_disk.files.follow(on_disk.app.space());
@@ -103,6 +104,15 @@ impl OnDisk {
                 }
                 Effect::TrashCanvasFile { canvas, file } => self.files.trash(&canvas, &file),
                 Effect::SaveSpaceMeta => self.files.save_meta(&self.app),
+                Effect::CloseProject(project) => {
+                    self.files.flush(&self.app);
+                    self.send(Event::ProjectClosed(project));
+                    self.files.prune(self.app.space());
+                }
+                Effect::WriteGitChoice(project) => {
+                    let project = self.app.space().project(&project).unwrap();
+                    super::write_git_choice(project).unwrap();
+                }
                 _ => {}
             }
         }
@@ -138,7 +148,7 @@ fn writing_the_index_keeps_what_this_app_does_not_use() {
     );
     dir.write("Home-aaaa.canvas", &canvas("a"));
     let mut space = OnDisk::open(&dir.0);
-    space.act(Action::Canvas(CanvasAction::New));
+    space.act(Action::Canvas(CanvasAction::New(None)));
     let meta = dir.json(".specular/workspace-meta.json");
     assert_eq!(meta["viewMode"], "browser");
     let made = space.id("Canvas 2");
@@ -159,7 +169,7 @@ fn new_rename_duplicate_and_delete_are_each_on_disk() {
     let mut space = OnDisk::open(&dir.0);
     let home = space.id("Home");
 
-    space.act(Action::Canvas(CanvasAction::New));
+    space.act(Action::Canvas(CanvasAction::New(None)));
     let made = space.app.space().active().file.clone();
     assert!(made.starts_with("Canvas 2-"), "{made}");
     assert_eq!(dir.canvases(), [made.as_str(), "Home-aaaa.canvas"]);

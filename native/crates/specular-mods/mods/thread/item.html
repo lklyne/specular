@@ -1,0 +1,51 @@
+<!doctype html>
+<!-- One agent thread, live, as a canvas item: the agent panel's own thread
+     view, <specular-chat> from ../lib/chat.js, which any web mod page can
+     use. The item's id is in the address (#item=<id>); its props name the
+     thread (`props.thread`). Until the block has one it names a thread
+     nobody has, which its first message starts, and the props keep it, as
+     they keep the thread a person switches to or starts in the header.
+     Enter the item (double click) to type in it, as with any page. -->
+<html>
+<head>
+<meta charset="utf-8">
+<script src="../lib/chat.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  /* Fixed, so nothing (a focused field, a long line) can scroll the
+     document itself: the transcript scrolls inside itself. */
+  body { position: fixed; inset: 0; display: flex; }
+  specular-chat { flex: 1; border: 1px solid var(--sc-sidebarRule); border-radius: 12px; overflow: hidden; }
+</style>
+</head>
+<body>
+<specular-chat id="chat"></specular-chat>
+<script>
+  const item = new URLSearchParams(location.hash.slice(1)).get("item");
+  const chat = document.getElementById("chat");
+  // The thread the props hold, once they hold one.
+  let kept = null;
+
+  function keep(thread) {
+    if (!thread || thread === kept) return;
+    kept = thread;
+    specular.run("item.set", { id: item, props: { thread } });
+  }
+  chat.addEventListener("thread-change", (event) => keep(event.detail.thread));
+  chat.addEventListener("send", (event) => keep(event.detail.thread));
+
+  SpecularChat.followTheme();
+  SpecularChat.ready((specular) => {
+    specular.subscribe("canvas/mod_items", (items) => {
+      const mine = (items || []).find((each) => each.id === item);
+      if (!mine) return;
+      const thread = mine.props && mine.props.thread;
+      if (thread) kept = thread;
+      const shown = chat.getAttribute("thread");
+      if (thread && thread !== shown) chat.setAttribute("thread", thread);
+      else if (!shown) chat.setAttribute("thread", SpecularChat.freshThreadId());
+    });
+  });
+</script>
+</body>
+</html>

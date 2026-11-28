@@ -69,7 +69,7 @@ impl TextSystem {
             let slot = &self.layer_mut(frame.space).slots[index];
             counts.glyphs += slot.glyphs;
             let heights = slot.heights.clone();
-            self.column_heights.extend(heights);
+            self.column_measures.extend(heights);
         }
     }
 

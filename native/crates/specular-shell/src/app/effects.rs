@@ -66,6 +66,21 @@ impl<W: ShellWindow> Runtime<W> {
             })
     }
 
+    /// Hands the window what only it does: text input and the cursor.
+    fn to_window(&self, effect: Effect) {
+        let Some(gpu) = self.gpu.as_ref() else {
+            return;
+        };
+        match effect {
+            Effect::SetImeAllowed(allowed) => gpu.set_ime_allowed(allowed),
+            Effect::SetImeCursorArea { origin, size } => gpu.set_ime_cursor_area(origin, size),
+            Effect::SetCursor(cursor) => gpu.set_cursor(cursor),
+            Effect::EditField(field) => gpu.edit_field(&field),
+            Effect::RunShell(command) => gpu.run_shell(command),
+            _ => {}
+        }
+    }
+
     fn run(&mut self, effect: Effect) -> anyhow::Result<()> {
         if !self.options.writes && leaves_memory(&effect) {
             return Ok(());
@@ -85,26 +100,11 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::SetPageViewport { page, viewport } => self.set_page_viewport(&page, viewport),
             Effect::FocusPage(page) => self.focus_page(page.as_ref()),
             Effect::ForwardInput { page, event } => self.send_to_page(&page, &event),
-            Effect::SetImeAllowed(allowed) => {
-                if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.set_ime_allowed(allowed);
-                }
-            }
-            Effect::SetImeCursorArea { origin, size } => {
-                if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.set_ime_cursor_area(origin, size);
-                }
-            }
-            Effect::SetCursor(cursor) => {
-                if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.set_cursor(cursor);
-                }
-            }
-            Effect::EditField(field) => {
-                if let Some(gpu) = self.gpu.as_ref() {
-                    gpu.edit_field(&field);
-                }
-            }
+            effect @ (Effect::SetImeAllowed(_)
+            | Effect::SetImeCursorArea { .. }
+            | Effect::SetCursor(_)
+            | Effect::EditField(_)
+            | Effect::RunShell(_)) => self.to_window(effect),
             Effect::Save => self.request_save(),
             Effect::WriteCanvas(canvas) => self.write_canvas(&canvas),
             Effect::RenameCanvasFile { canvas, from, to } => {
@@ -117,6 +117,8 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::ShareConnect { canvas, link } => self.share_connect(canvas, &link),
             Effect::ShareDisconnect(canvas) => self.share_disconnect(&canvas),
             Effect::SharePublish { canvas, title } => self.share_publish(canvas, title),
+            Effect::InstallMods(needs) => self.install_mods(&needs),
+            Effect::BundleMod(name) => self.bundle_mod(&name),
             Effect::LoadImage { image, file } => self.load_image(image, &file),
             Effect::RasterImage { image, file, size } => self.raster_image(image, &file, size),
             Effect::DropImage(image) => self.drop_image(image),
@@ -136,6 +138,7 @@ impl<W: ShellWindow> Runtime<W> {
             }
             Effect::SetPageDevice { page, device } => self.set_page_device(&page, device),
             Effect::LoadThreads => self.load_threads(),
+            Effect::LoadProjectThreads(project) => self.load_project_threads(&project),
             Effect::WriteThread(thread) => self.write_thread(&thread),
             Effect::WriteThreadIndex => self.write_thread_index(),
             Effect::RunAgent(request) => self.run_agent(&request),
@@ -162,8 +165,18 @@ impl<W: ShellWindow> Runtime<W> {
             Effect::ChooseSpace { create } => self.ask_for_folder(FolderAsk::Space { create }),
             Effect::OpenSpace(folder) => self.choose_space(std::path::Path::new(&folder)),
             Effect::RevealSpace => self.reveal_space(),
+            Effect::ChooseProject => self.ask_for_folder(FolderAsk::Project),
+            Effect::OpenProject(folder) => self.open_project(std::path::Path::new(&folder)),
+            Effect::RevealProject(project) => self.reveal_project(&project),
+            Effect::SaveProjects => self.save_projects(false),
+            Effect::WriteGitChoice(project) => self.write_git_choice(&project),
+            Effect::ProjectEntered => self.project_entered(),
+            Effect::CloseProject(project) => self.close_project(&project),
             Effect::Quit => self.exit(),
-            Effect::SaveSettings(settings) => self.save_settings(settings),
+            Effect::SaveSettings(settings) => self.save_settings(&settings),
+            effect @ (Effect::SaveLayoutToggles(..)
+            | Effect::SaveActiveLayout(_)
+            | Effect::ResetLayout) => self.layout(effect),
             Effect::PickRepoFolder { origin } => self.ask_for_folder(FolderAsk::Repo { origin }),
             Effect::QueryRegionGrab { region, pages } => self.query_region_grab(region, &pages),
             Effect::PreviewRegion { pages } => self.preview_region(&pages),
@@ -180,6 +193,7 @@ const fn leaves_memory(effect: &Effect) -> bool {
         Effect::WriteAsset { .. }
             | Effect::CopyAsset { .. }
             | Effect::LoadThreads
+            | Effect::LoadProjectThreads(_)
             | Effect::WriteThread(_)
             | Effect::WriteThreadIndex
             | Effect::RunAgent(_)
@@ -187,14 +201,21 @@ const fn leaves_memory(effect: &Effect) -> bool {
             | Effect::ChooseSpace { .. }
             | Effect::OpenSpace(_)
             | Effect::RevealSpace
+            | Effect::ChooseProject
+            | Effect::OpenProject(_)
+            | Effect::RevealProject(_)
+            | Effect::SaveProjects
+            | Effect::WriteGitChoice(_)
             | Effect::PickRepoFolder { .. }
             | Effect::SaveRepos
             | Effect::ShareConnect { .. }
             | Effect::SharePublish { .. }
+            | Effect::InstallMods(_)
+            | Effect::BundleMod(_)
     )
 }
 
-fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {
+pub(super) fn warn_on_error<E: std::fmt::Display>(result: Result<(), E>) {
     if let Err(error) = result {
         tracing::warn!("{error}");
     }

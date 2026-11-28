@@ -97,7 +97,7 @@ impl Render for PaletteView {
             .max_h(px(380.0))
             .empty(|_, _, _| {
                 div()
-                    .p_4()
+                    .p(crate::theme::space(4.0))
                     .text_size(px(13.0))
                     .text_color(theme::tinted(theme::text_muted()))
                     .child("No commands match")
@@ -124,11 +124,26 @@ impl Render for PaletteView {
 }
 
 /// Runs a command of the palette: an action as a chosen menu item, a shell
-/// command as its menu item.
+/// command as its menu item, and a mod's entry as the command it names.
 fn run_command(run: PaletteRun, _: &mut Window, cx: &mut App) {
     match run {
         PaletteRun::Action(action) => menus::run_action(action, cx),
         PaletteRun::Shell(command) => menus::run_shell(command, cx),
+        PaletteRun::Named { name, args } => {
+            let named = canvas::with(|canvas| {
+                specular_interact::run_named(canvas.runtime.app(), &name, &args)
+            });
+            match named {
+                Some(Ok(run)) => match run.into_event() {
+                    Ok(event) => canvas::dispatch(event),
+                    Err(command) => menus::run_shell(command, cx),
+                },
+                Some(Err(error)) => {
+                    tracing::warn!("the palette entry `{name}` did not run: {error}");
+                }
+                None => {}
+            }
+        }
     }
 }
 
@@ -152,8 +167,43 @@ pub(crate) fn open(window: &mut Window, cx: &mut App) {
     state.update(cx, |state, cx| state.focus(window, cx));
 }
 
+/// The palette the layout names a mod for: opened as an overlay near the
+/// top of the window, or closed when it is open. Returns whether the
+/// layout names one.
+fn toggle_mod() -> bool {
+    use specular_interact::{Action, Event, Overlay, OverlayAction, OverlayKind, OverlaySpec};
+    let Some(models) = canvas::models() else {
+        return false;
+    };
+    let node = models.layout.overlay(Overlay::Palette);
+    let Some(name) = node.fill.clone().filter(|_| models.shows(Overlay::Palette)) else {
+        return false;
+    };
+    let id = Overlay::Palette.name().to_owned();
+    let action = if models.mod_overlays.iter().any(|open| open.id == id) {
+        OverlayAction::Close(Some(id))
+    } else {
+        OverlayAction::Open(Box::new(OverlaySpec {
+            id,
+            name,
+            props: node.props.clone(),
+            kind: OverlayKind::Dialog,
+            width: Some(560.0),
+            height: None,
+            at: None,
+            edge: Some("top".to_owned()),
+            frame: None,
+        }))
+    };
+    canvas::dispatch(Event::Action(Action::Overlay(action)));
+    true
+}
+
 /// Command+K: opens the palette, or closes it when it is open.
 pub(crate) fn toggle(window: &mut Window, cx: &mut App) {
+    if toggle_mod() {
+        return;
+    }
     if window.has_active_dialog(cx) {
         let ours = (cx.try_global::<Open>()).is_some_and(|open| open.0.upgrade().is_some());
         if ours {

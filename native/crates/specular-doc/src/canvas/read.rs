@@ -4,7 +4,8 @@ use serde_json::Value;
 
 use super::fields::take;
 use crate::{
-    Color, Drawing, Entity, EntityId, FileRef, Group, JsonMap, Kind, Page, Rect, Shape, Text,
+    Color, Drawing, Entity, EntityId, FileRef, Group, JsonMap, Kind, ModDraw, ModFallback, ModItem,
+    Page, Rect, Shape, Text,
 };
 
 /// Reads a node. A node this crate cannot type (an unknown `type`, or a
@@ -94,19 +95,21 @@ pub(super) fn read_node(mut node: JsonMap) -> Result<Entity, JsonMap> {
             entity.anchor = take(&mut node, "pageAnchor");
         }
         Kind::Shape(shape) => {
-            shape.text = take(&mut node, "text").unwrap_or_default();
-            shape.color = take_node_color(&mut node, &mut ext);
-            shape.stroke_width = take(&mut node, "strokeWidth");
-            shape.border_style = take(&mut node, "borderStyle");
-            shape.border_color = take(&mut node, "borderColor");
-            shape.theme = take(&mut node, "theme");
+            read_shape(shape, &mut node, &mut ext);
             entity.label = take(&mut node, "label");
             entity.parent = take(&mut node, "parentGroupId");
             entity.anchor = take(&mut node, "pageAnchor");
-            shape.text_size = take(&mut ext, "textSize");
-            shape.fill_style = take(&mut ext, "fillStyle");
-            shape.text_align = take(&mut ext, "textAlign");
-            shape.text_vertical_align = take(&mut ext, "textVerticalAlign");
+        }
+        Kind::Mod(item) => {
+            // Its base type is a JSON Canvas one, so everything of its own
+            // sits under `specular`.
+            ext.shift_remove("mod");
+            item.props = take(&mut ext, "props").unwrap_or_default();
+            let snapshot: Option<Value> = take(&mut ext, "snapshot");
+            item.snapshot = snapshot.as_ref().and_then(ModDraw::list);
+            entity.label = take(&mut ext, "label");
+            entity.parent = take(&mut ext, "parentGroupId");
+            entity.anchor = take(&mut ext, "pageAnchor");
         }
     }
     if !ext.is_empty() {
@@ -126,6 +129,18 @@ fn read_required(node: &mut JsonMap) -> Option<Kind> {
             .all(|key| node.get(*key).is_some_and(Value::is_number));
     if !has_base {
         return None;
+    }
+    if let Some(name) = mod_name(node) {
+        let fallback = match node.get("type")?.as_str()? {
+            "text" => ModFallback::Text(take(node, "text")?),
+            "link" => ModFallback::Link(take(node, "url")?),
+            "file" => ModFallback::File(take(node, "file")?),
+            _ => return None,
+        };
+        return Some(Kind::Mod(ModItem {
+            fallback,
+            ..ModItem::new(name, JsonMap::new())
+        }));
     }
     Some(match node.get("type")?.as_str()? {
         "link" => Kind::Page(Page {
@@ -149,6 +164,12 @@ fn read_required(node: &mut JsonMap) -> Option<Kind> {
     })
 }
 
+/// The mod a node is an item of: its `specular.mod`, on any base type.
+fn mod_name(node: &JsonMap) -> Option<String> {
+    let name = node.get("specular")?.get("mod")?.as_str()?;
+    Some(name.to_owned())
+}
+
 /// A text or shape node's color. The neutral is stored as the red preset
 /// plus `specular.colorRole`, so tools that ignore `specular` still read a
 /// valid color.
@@ -159,4 +180,20 @@ fn take_node_color(node: &mut JsonMap, ext: &mut JsonMap) -> Option<Color> {
         return Some(Color::Neutral);
     }
     take(node, "color")
+}
+
+/// A shape's own fields, from the node and its `specular` extension.
+fn read_shape(shape: &mut crate::Shape, node: &mut JsonMap, ext: &mut JsonMap) {
+    shape.text = take(node, "text").unwrap_or_default();
+    shape.color = take_node_color(node, ext);
+    shape.stroke_width = take(node, "strokeWidth");
+    shape.border_style = take(node, "borderStyle");
+    shape.border_color = take(node, "borderColor");
+    shape.theme = take(node, "theme");
+    shape.text_size = take(ext, "textSize");
+    shape.fill_style = take(ext, "fillStyle");
+    shape.text_align = take(ext, "textAlign");
+    shape.text_vertical_align = take(ext, "textVerticalAlign");
+    shape.custom =
+        take::<Value>(ext, "customShape").and_then(|value| crate::CustomShape::from_json(&value));
 }

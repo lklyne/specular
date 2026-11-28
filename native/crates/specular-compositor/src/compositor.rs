@@ -158,11 +158,11 @@ impl Compositor {
     }
 
     /// How tall the rows of each Document drawn by the latest
-    /// [`render_scene`](Self::render_scene) came out, in canvas units, for
-    /// `Event::NoteHeights`. A
+    /// [`render_scene`](Self::render_scene) came out and where their tick boxes landed, in canvas units, for
+    /// `Event::NoteLayouts`. A
     /// Document that was off screen is not in it.
-    pub fn column_heights(&self) -> &[(specular_scene::OwnerId, f32)] {
-        self.scene_pass.column_heights()
+    pub fn column_measures(&self) -> &[(specular_scene::OwnerId, specular_scene::ColumnMeasure)] {
+        self.scene_pass.column_measures()
     }
 
     /// Ingests one event from a page source: frames replace the page's
@@ -200,6 +200,7 @@ impl Compositor {
             | PageEvent::Cursor { .. }
             | PageEvent::Favicon { .. }
             | PageEvent::Url { .. }
+            | PageEvent::BridgeCall { .. }
             | PageEvent::OpenTab { .. }
             | PageEvent::Loading { .. }
             | PageEvent::Scrolled { .. }

@@ -13,6 +13,17 @@ use crate::{
 /// run in the order they are returned.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
+    /// Run the window's own command (a `keys.json` key bound to one).
+    RunShell(crate::ShellCommand),
+    /// Copy each mod from the space folder (its `from`, relative to the
+    /// space folder) into the app home's `mods/`, then answer with
+    /// [`Event::ModCatalog`](crate::Event::ModCatalog). The person asked
+    /// for it: installing runs the mod's code with their access.
+    InstallMods(Vec<specular_doc::ModNeed>),
+    /// Copy the installed mod `name` into the space folder's `mods/<name>`,
+    /// where the canvas's `specular.mods` says it can be had, so the
+    /// canvas carries what its items need.
+    BundleMod(String),
     /// Answer the [`Event::Api`](crate::Event::Api) that carried `ticket`,
     /// once the event's other effects have run. The document and the
     /// session are by then as the call left them.
@@ -308,10 +319,42 @@ pub enum Effect {
     OpenSpace(String),
     /// Show the open space's folder in the file manager.
     RevealSpace,
+    /// Ask the user for a folder and open it as a project beside the ones
+    /// open (ADR 0062), answering with
+    /// [`Event::ProjectOpened`](crate::Event::ProjectOpened). A cancelled
+    /// dialog changes nothing.
+    ChooseProject,
+    /// Open the folder at this path as a project beside the ones open,
+    /// unless it is one of them.
+    OpenProject(String),
+    /// Show a project's folder in the file manager.
+    RevealProject(crate::ProjectId),
+    /// Keep the list of open projects, and each one's git choice, for the
+    /// next launch.
+    SaveProjects,
+    /// Write `.specular/.gitignore` in the project's folder for the git
+    /// choice [`App::space`](crate::App::space) has for it.
+    WriteGitChoice(crate::ProjectId),
+    /// The canvas showing is now in another project: relative file paths
+    /// start from that project's canvas folder from here on. Comes before
+    /// the effects that load the new canvas's pages, images and Documents.
+    ProjectEntered,
+    /// Write every unsaved change of the project's canvases now, then
+    /// answer with [`Event::ProjectClosed`](crate::Event::ProjectClosed),
+    /// which takes it out of the list. The canvas showing is in another
+    /// project already.
+    CloseProject(crate::ProjectId),
     /// Quit the app.
     Quit,
     /// Write the settings to the preferences file, under `show`.
     SaveSettings(AppSettings),
+    /// Keep what was toggled over the layout named, apart from its file.
+    SaveLayoutToggles(String, crate::Toggles),
+    /// Keep which layout is shown, for the next start.
+    SaveActiveLayout(String),
+    /// Set every toggles' file aside and write the shipped layouts again:
+    /// the app is back on the shipped default.
+    ResetLayout,
     /// Count the elements each page has inside a comment region and answer
     /// with [`Event::RegionGrab`](crate::Event::RegionGrab), which repeats
     /// the region and lists the pages in this order.
@@ -388,6 +431,9 @@ pub enum Effect {
     /// [`Event::ThreadsLoaded`](crate::Event::ThreadsLoaded). Asked when a
     /// space with a folder opens. Files that are not threads are skipped.
     LoadThreads,
+    /// Read the threads of one project just opened and answer with
+    /// [`Event::ThreadsAdded`](crate::Event::ThreadsAdded).
+    LoadProjectThreads(crate::ProjectId),
     /// Write one thread to `.specular/threads/<canvas id>/<thread id>.json`
     /// in the space folder. The text is
     /// [`Thread::to_json`](specular_agent::Thread::to_json) of

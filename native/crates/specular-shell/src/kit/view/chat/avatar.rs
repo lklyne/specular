@@ -311,7 +311,7 @@ impl Render for ThreadAvatar {
             None => div()
                 .size(px(size))
                 .flex_shrink_0()
-                .rounded(px(PLACEHOLDER_RADIUS))
+                .rounded(crate::theme::corner(PLACEHOLDER_RADIUS))
                 .bg(theme::solid(theme::zinc_100()))
                 .into_any_element(),
         }

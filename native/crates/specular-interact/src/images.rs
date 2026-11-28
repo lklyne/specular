@@ -22,10 +22,12 @@
 mod animation;
 mod vector;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use specular_doc::{DeviceArt, DeviceFrameColor, Document, Entity, FileRef, Kind};
+use specular_doc::{
+    DeviceArt, DeviceFrameColor, Document, Entity, EntityId, FileRef, Kind, ModDraw,
+};
 
 pub(crate) use self::animation::Animations;
 
@@ -130,10 +132,18 @@ pub fn is_image_file(file: &str) -> bool {
 /// A drawing is asked for as soon as a frame is shown that could be drawn
 /// with it, clay too: rastering one takes a moment, and the frame key
 /// steps clay before realistic, so the drawing is ready by then.
-fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = &str> {
+///
+/// A mod item's pictures are the images of the display list it shows: the
+/// one its mod last sent, else its snapshot (`draws` holds the sent ones).
+fn wanted<'a>(
+    document: &'a Document,
+    draws: &'a HashMap<EntityId, Vec<ModDraw>>,
+    theme: DeviceFrameColor,
+) -> impl Iterator<Item = &'a str> {
     document.entities().flat_map(move |entity| {
-        let file = match &entity.kind {
-            Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
+        let pictures = match &entity.kind {
+            Kind::Mod(item) => (draws.get(&entity.id).or(item.snapshot.as_ref()))
+                .map(|shown| ModDraw::images(shown)),
             Kind::Page(_)
             | Kind::File(_)
             | Kind::Text(_)
@@ -141,8 +151,20 @@ fn wanted(document: &Document, theme: DeviceFrameColor) -> impl Iterator<Item = 
             | Kind::Drawing(_)
             | Kind::Shape(_) => None,
         };
+        let file = match &entity.kind {
+            Kind::File(file) if is_image_file(&file.file) => Some(file.file.as_str()),
+            Kind::Page(_)
+            | Kind::File(_)
+            | Kind::Text(_)
+            | Kind::Group(_)
+            | Kind::Drawing(_)
+            | Kind::Shape(_)
+            | Kind::Mod(_) => None,
+        };
         let art = device_art(entity).map(|art| art.asset(entity.frame_color().unwrap_or(theme)));
-        file.into_iter().chain(art)
+        file.into_iter()
+            .chain(art)
+            .chain(pictures.into_iter().flatten())
     })
 }
 
@@ -165,7 +187,7 @@ pub(crate) fn theme_device_color(app: &App) -> DeviceFrameColor {
 pub(crate) fn request_new(app: &mut App, effects: &mut Vec<Effect>) {
     let theme = theme_device_color(app);
     let images = &mut app.session.images;
-    for file in wanted(&app.document, theme) {
+    for file in wanted(&app.document, &app.mods.draws, theme) {
         if images.by_file.contains_key(file) {
             continue;
         }
@@ -192,9 +214,9 @@ pub(crate) fn request_new(app: &mut App, effects: &mut Vec<Effect>) {
 /// which no undo can bring back, and asks for the ones that are new.
 pub(crate) fn reopen(app: &mut App, effects: &mut Vec<Effect>) {
     let theme = theme_device_color(app);
-    let document = &app.document;
+    let (document, draws) = (&app.document, &app.mods.draws);
     app.session.images.by_file.retain(|file, image| {
-        let shown = wanted(document, theme).any(|wanted| wanted == file);
+        let shown = wanted(document, draws, theme).any(|wanted| wanted == file);
         if !shown {
             effects.push(Effect::DropImage(image.key));
         }

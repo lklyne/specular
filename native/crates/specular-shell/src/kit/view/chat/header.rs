@@ -15,7 +15,7 @@ use gpui_kit::{
     ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, Window, div,
     px,
 };
-use specular_interact::{Action, ChatModel, ThreadRow};
+use specular_interact::{Action, ChatModel, HeaderAction, ThreadRow};
 
 use super::avatar::ThreadAvatar;
 use super::date::short_date;
@@ -38,20 +38,39 @@ fn icon_button(id: &'static str, icon: impl Into<Icon>, tooltip: &'static str) -
         .ghost()
         .xsmall()
         .size(px(24.0))
-        .rounded(px(4.0))
+        .rounded(crate::theme::corner(4.0))
         .child(icon.into().size(px(13.0)))
         .child(crate::tip::over(id, tooltip))
 }
 
 /// One thread in the switcher's menu: its title, a tag while it is a draft,
 /// and a check on the open one.
+/// A button a mod adds for the open thread, drawn as the header's own.
+fn mod_button(button: &HeaderAction) -> Button {
+    let action = button.action.clone();
+    let tip = SharedString::from(button.title.clone());
+    Button::new(SharedString::from(format!("chat-mod-{}", button.command)))
+        .ghost()
+        .xsmall()
+        .size(px(24.0))
+        .child(super::super::glyphs::glyph(
+            button.icon,
+            super::super::glyphs::ink(theme::text()),
+            None,
+            false,
+            13.0,
+        ))
+        .tooltip(tip)
+        .on_click(move |_, window, cx| run(&action, window, cx))
+}
+
 fn menu_item(row: &ThreadRow, input: &Entity<TextareaState>) -> PopupMenuItem {
     let (select, input) = (row.select.clone(), input.clone());
     let title = SharedString::from(row.title.clone());
     let item = if row.draft {
         PopupMenuItem::element(move |_, _| {
             h_flex()
-                .gap_2()
+                .gap(crate::theme::space(2.0))
                 .items_center()
                 .child(div().min_w_0().truncate().child(title.clone()))
                 .child(Tag::secondary().xsmall().child("draft"))
@@ -118,6 +137,7 @@ impl ShellView {
             .flex_shrink_0()
             .gap(px(2.0))
             .items_center()
+            .children(model.actions.iter().map(mod_button))
             .child(
                 icon_button("chat-new", IconName::Plus, "New thread").on_click(
                     move |_, window, cx| run_keeping_field(&new_thread, &input, window, cx),
@@ -140,11 +160,11 @@ impl ShellView {
         h_flex()
             .h(px(theme::DOCK_ROW))
             .flex_shrink_0()
-            .px_3()
+            .px(crate::theme::space(3.0))
             .gap(px(6.0))
             .items_center()
             .bg(theme::solid(theme::toolbar()))
-            .border_b_1()
+            .border_b(crate::theme::line())
             .border_color(theme::solid(theme::toolbar_border()))
             // The panel's edge is the chrome border, which is lost against
             // the toolbar's fill, so beside the header it is the toolbar's.
@@ -168,9 +188,9 @@ impl ShellView {
         let item = h_flex()
             .id(id.clone())
             .w_full()
-            .px_3()
+            .px(crate::theme::space(3.0))
             .py(px(6.0))
-            .gap_2()
+            .gap(crate::theme::space(2.0))
             .items_center()
             .cursor_pointer()
             .hover(|this| this.bg(theme::solid(theme::zinc_100())))
@@ -230,10 +250,16 @@ impl ShellView {
             .id("chat-threads-list")
             .flex_1()
             .min_h_0()
-            .py_1()
+            .py(crate::theme::space(1.0))
             .overflow_y_scroll()
             .when(rows.is_empty(), |this| {
-                this.child(div().px_3().py_2().text_color(muted()).child(NO_THREADS))
+                this.child(
+                    div()
+                        .px(crate::theme::space(3.0))
+                        .py(crate::theme::space(2.0))
+                        .text_color(muted())
+                        .child(NO_THREADS),
+                )
             })
             .children(rows)
     }

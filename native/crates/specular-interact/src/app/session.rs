@@ -30,6 +30,8 @@ pub struct Session {
     pub hover: Option<EntityId>,
     /// What keys go to.
     pub focus: Focus,
+    /// The mod overlays open, bottom first.
+    pub(crate) overlays: crate::overlays::Overlays,
     /// The item a tab shows under the chrome, with the camera the canvas
     /// gets back. `None` while the canvas is shown.
     pub(crate) item_view: Option<crate::showing::ItemView>,
@@ -69,7 +71,7 @@ pub struct Session {
     /// and the sidebar row picked last.
     pub panel: PanelUi,
     /// Whether the sidebar is shown, and its folds. See
-    /// [`App::covered_left`].
+    /// [`App::insets`].
     pub sidebar: crate::SidebarView,
     /// The right panel: whether the shell has one, whether it is open, and
     /// its width.
@@ -104,8 +106,22 @@ pub struct Session {
     pub(crate) images: Images,
     /// The text of the Documents file entities show, and their scroll.
     pub(crate) notes: Notes,
+    /// The edges each page's last handle resize held still, so a frame
+    /// painted at another size is drawn against them (see
+    /// [`App::frame_pin`](crate::App::frame_pin)).
+    pub(crate) frame_pins: std::collections::HashMap<EntityId, FramePin>,
     /// State of the id sequence.
     pub(crate) id_state: u64,
+}
+
+/// Which corner of a page's rect a frame painted at another size keeps
+/// to. The default is the top-left, as a browser window's is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct FramePin {
+    /// The frame keeps to the right edge, which a left handle held still.
+    pub right: bool,
+    /// The frame keeps to the bottom edge, which a top handle held still.
+    pub bottom: bool,
 }
 
 impl Session {

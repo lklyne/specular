@@ -46,7 +46,7 @@ pub(super) fn row(item: &PaletteItem, positions: &[usize]) -> impl IntoElement +
     let muted = theme::tinted(theme::text_muted());
     h_flex()
         .w_full()
-        .gap_6()
+        .gap(crate::theme::space(6.0))
         .items_center()
         .justify_between()
         .text_size(px(13.0))
@@ -60,7 +60,7 @@ pub(super) fn row(item: &PaletteItem, positions: &[usize]) -> impl IntoElement +
         )
         .child(
             h_flex()
-                .gap_2()
+                .gap(crate::theme::space(2.0))
                 .items_center()
                 .when(item.checked == Some(true), |keys| {
                     keys.child(Icon::new(IconName::Check).small())

@@ -1,0 +1,24 @@
+{
+  "appearance": "dark",
+  "colors": {
+    "toolbar": "#14171cff",
+    "toolbarBorder": "#262b33ff",
+    "toolbarText": "#9aa4b2ff",
+    "toolbarTextStrong": "#e6e9eeff",
+    "popup": "#1b1f26ff",
+    "popupBorder": "#2c323cff",
+    "text": "#e6e9eeff",
+    "textMuted": "#8a94a3ff",
+    "hover": "#232831ff",
+    "on": "#2a3140ff",
+    "divider": "#262b33ff",
+    "sidebar": "#101318ff",
+    "sidebarRule": "#20252dff",
+    "raisedFill": "#2a3140ff",
+    "tabHover": "#1e232bff",
+    "primary": "#7aa2f7ff",
+    "primaryHover": "#9bb8ffff",
+    "primaryForeground": "#0b0e13ff",
+    "accent": "#7aa2f7ff"
+  }
+}

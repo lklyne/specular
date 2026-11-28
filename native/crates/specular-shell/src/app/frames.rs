@@ -42,6 +42,12 @@ impl<W: ShellWindow> Runtime<W> {
         self.demand.wanted(Instant::now())
     }
 
+    /// Owes a frame, for a change the app does not see, such as the
+    /// window's surface being resized.
+    pub fn redraw(&mut self) {
+        self.demand.changed();
+    }
+
     /// When to call [`turn`](Self::turn) again if no event comes first.
     pub fn next_turn(&self) -> Instant {
         let now = Instant::now();
@@ -100,12 +106,14 @@ impl<W: ShellWindow> Runtime<W> {
             gpu.compositor_mut().release_idle(now);
         }
         self.sync_files();
+        self.poll_layout(now);
         self.reload_changed_pages(now);
         self.take_loaded_image();
         self.take_read_notes();
         self.take_agent_notices();
         self.take_share_notices();
         self.flush_drops();
+        self.push_bridge_changes();
     }
 
     /// Renders and presents one frame of the app as it stands. `None` when
@@ -154,7 +162,7 @@ impl<W: ShellWindow> Runtime<W> {
         if let Some(latency) = sample.input_to_present {
             tracing::debug!(?latency, "input to present");
         }
-        self.report_note_heights();
+        self.report_note_layouts();
         Some(sample)
     }
 }

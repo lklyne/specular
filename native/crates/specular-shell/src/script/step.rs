@@ -12,7 +12,7 @@ use super::expect::{self, Expect};
 use super::facts_panels::{self, PanelStep};
 use super::window::{self, WindowStep};
 use super::words::{
-    action_named, camera, key_named, modifiers, point, theme_named, tool_named, unescaped,
+    camera, key_named, modifiers, point, run_args, theme_named, tool_named, unescaped,
 };
 
 /// One line of a script.
@@ -63,9 +63,18 @@ pub enum Step {
     Tool(Tool),
     /// `select id id`: replaces the selection.
     Select(Vec<String>),
-    /// `act annotate-selection` or `act resolve-comment`: the commands
-    /// that have a menu item and no key.
+    /// An action, as a step that names one sends it.
     Act(Action),
+    /// `run edit.undo` or `run tool.set {"tool":"draw"}`: the command of the
+    /// registry with that name, run as its menu item or `POST /run` runs
+    /// it, with the rest of the line as its JSON arguments. It fails when
+    /// the command cannot run then.
+    Run {
+        /// The command's name.
+        name: String,
+        /// Its arguments.
+        args: serde_json::Value,
+    },
     /// `camera fit` or `camera x,y,zoom`.
     Camera(CameraArg),
     /// `wait ms`: the clock moves on and pending loads are waited for.
@@ -175,7 +184,10 @@ pub(super) fn step(line: &str) -> anyhow::Result<Step> {
         ("scroll", [x, y, dx, dy]) => Step::ScrollAt(point(x, y)?, point(dx, dy)?),
         ("pinch", [delta]) => Step::Pinch(delta.parse().context("pinch expects a number")?),
         ("tool", [name]) => Step::Tool(tool_named(name)?),
-        ("act", [name]) => Step::Act(action_named(name)?),
+        ("run", [name, ..]) => Step::Run {
+            name: (*name).to_owned(),
+            args: run_args(rest[name.len()..].trim())?,
+        },
         ("theme", [name]) => Step::Act(Action::SetTheme(theme_named(name)?)),
         ("select", ids) => Step::Select(ids.iter().map(|&id| id.to_owned()).collect()),
         ("camera", [value]) => Step::Camera(camera(value)?),

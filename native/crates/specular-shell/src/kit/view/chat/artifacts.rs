@@ -30,8 +30,8 @@ fn picture(card: &ArtifactCard) -> impl IntoElement + use<> {
         .h(px(48.0))
         .p(px(6.0))
         .gap(px(4.0))
-        .rounded(px(6.0))
-        .border_1()
+        .rounded(crate::theme::corner(6.0))
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::input_border()))
         .bg(theme::solid(theme::input()))
         .child(glyph(card.glyph, ink(theme::text()), None, false, 12.0))
@@ -39,7 +39,7 @@ fn picture(card: &ArtifactCard) -> impl IntoElement + use<> {
             div()
                 .h(px(3.0))
                 .w(px(30.0 * share))
-                .rounded(px(1.5))
+                .rounded(crate::theme::corner(1.5))
                 .bg(bar)
         }));
     h_flex()
@@ -47,7 +47,7 @@ fn picture(card: &ArtifactCard) -> impl IntoElement + use<> {
         .w_full()
         .items_center()
         .justify_center()
-        .rounded(px(8.0))
+        .rounded(crate::theme::corner(8.0))
         .bg(linear_gradient(
             180.0,
             linear_color_stop(rgba(theme::wash_from()), 0.0),
@@ -64,8 +64,8 @@ fn card(id: SharedString, card: &ArtifactCard) -> AnyElement {
         .flex_shrink_0()
         .p(px(4.0))
         .gap(px(4.0))
-        .rounded(px(12.0))
-        .border_1()
+        .rounded(crate::theme::corner(12.0))
+        .border(crate::theme::line())
         .border_color(theme::solid(theme::input_border()))
         .child(picture(card))
         .child(

@@ -2,7 +2,8 @@
 //! item the property means nothing for.
 
 use specular_doc::{
-    Color, Drawing, Edge, Entity, FillStyle, Group, Kind, Rect, Shape, Text, TextStyle, WidthMode,
+    Color, Drawing, Edge, Entity, FillStyle, Group, Kind, Rect, Shape, ShapeKind, Text, TextStyle,
+    WidthMode,
 };
 
 use super::{Property, image, page};
@@ -32,6 +33,7 @@ pub(super) fn entity(
         Kind::Drawing(drawing) => set_drawing(property, drawing, &mut next.rect),
         Kind::Page(page) => page::set(property, page, &mut next.rect),
         Kind::File(file) => image::set(property, file, next.rect),
+        Kind::Mod(_) => false,
     };
     applies.then_some(next)
 }
@@ -71,6 +73,7 @@ pub(super) fn edge(property: &Property, edge: &Edge) -> Option<Edge> {
         | Property::TextAlign(_)
         | Property::TextVerticalAlign(_)
         | Property::ShapeKind(_)
+        | Property::CustomShape(_)
         | Property::FillStyle(_)
         | Property::BorderStyle(_)
         | Property::Brush(_)
@@ -141,7 +144,16 @@ fn set_shape(property: &Property, shape: &mut Shape) -> bool {
         Property::TextSize(size) => shape.text_size = Some(clamped(*size)),
         Property::TextAlign(align) => shape.text_align = Some(*align),
         Property::TextVerticalAlign(align) => shape.text_vertical_align = Some(*align),
-        Property::ShapeKind(kind) => shape.shape = *kind,
+        Property::ShapeKind(kind) => {
+            shape.shape = *kind;
+            if *kind != ShapeKind::Custom {
+                shape.custom = None;
+            }
+        }
+        Property::CustomShape(custom) => {
+            shape.shape = ShapeKind::Custom;
+            shape.custom = Some((**custom).clone());
+        }
         Property::FillStyle(style) => shape.fill_style = Some(*style),
         Property::BorderStyle(style) => shape.border_style = Some(*style),
         Property::StrokeWidth(width) => shape.stroke_width = Some(*width),

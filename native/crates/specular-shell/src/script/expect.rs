@@ -12,6 +12,7 @@
 //! expect sidebar on
 //! expect menu closed               # the right-click menu
 //! expect undo none                  # nothing to undo; `undo some`, `redo none`
+//! expect command page.reload disabled   # or `enabled`: whether `run` would run it
 //! expect count sticky 2             # entities, edges, comments, canvases, selected, or a kind
 //! expect entity s1 kind sticky
 //! expect entity s1 rect 100 100 200 200
@@ -73,6 +74,8 @@ pub enum Expect {
     Undo(bool),
     /// Whether there is something to redo.
     Redo(bool),
+    /// Whether the registry command of this name can run now.
+    Command(String, bool),
     /// How many of something the active canvas holds.
     Count(Counted, usize),
     /// A fact about one entity.
@@ -179,6 +182,9 @@ pub(super) fn parse(rest: &str) -> anyhow::Result<Expect> {
         ("menu", [open]) => Expect::Menu(on_off(open, "open", "closed")?),
         ("undo", [some]) => Expect::Undo(on_off(some, "some", "none")?),
         ("redo", [some]) => Expect::Redo(on_off(some, "some", "none")?),
+        ("command", [name, on]) => {
+            Expect::Command((*name).to_owned(), on_off(on, "enabled", "disabled")?)
+        }
         ("count", [what, count]) => Expect::Count(counted(what), whole(count)?),
         ("entity", [id, ..]) => {
             let (_, fact) = split(tail);

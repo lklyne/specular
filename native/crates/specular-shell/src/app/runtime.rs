@@ -19,6 +19,7 @@ use specular_bench::{FrameWork, PaintPolicy};
 use specular_core::{PageEvent, PageId, PageSource};
 use specular_doc::{Document, EntityId};
 use specular_interact::{Action, ApiOutcome, App, Event, ImageKey, SpaceAsk, update};
+use specular_scene::ColumnMeasure;
 
 use super::demand::FrameDemand;
 use super::{START_CAMERA, agent_run, image_run, note_run, repos_run};
@@ -126,8 +127,8 @@ pub struct Runtime<W> {
     /// The thread that reads and watches markdown files. `None` if it could
     /// not be started; every Document then stays on its loading line.
     pub(crate) note_loader: Option<NoteLoader>,
-    /// The Document heights the app was last told, to tell it only changes.
-    pub(crate) note_heights: HashMap<EntityId, f32>,
+    /// The Document layouts the app was last told, to tell it only changes.
+    pub(crate) note_layouts: HashMap<EntityId, ColumnMeasure>,
     /// What `view` keeps from one frame to the next.
     pub(crate) view_cache: specular_scene::ViewCache,
     /// The live room connection of each shared canvas.
@@ -149,6 +150,13 @@ pub struct Runtime<W> {
     /// The preferences file. `None` when settings are off, and when there
     /// is no home folder to keep it in.
     pub(crate) prefs: Option<PathBuf>,
+    /// The layout files. `None` when settings are off, and when there is
+    /// no home folder to keep them in.
+    pub(crate) layouts: Option<super::layout_run::LayoutFiles>,
+    /// Where mods are installed: `<app home>/mods`, or what a script named.
+    pub(crate) mods_folder: Option<std::path::PathBuf>,
+    /// What the window's mods have cost, as `GET /mods` answers it.
+    pub(crate) mod_stats: Option<serde_json::Value>,
     /// The repos file. `None` when settings are off, and when no folder
     /// can be found for it.
     pub(crate) repos_file: Option<PathBuf>,
@@ -158,6 +166,8 @@ pub struct Runtime<W> {
     pub(crate) dropped: Vec<PathBuf>,
     /// Where they were dropped, in logical pixels of the viewport.
     pub(crate) dropped_at: Option<Vec2>,
+    /// The page bridge in each page from the space folder.
+    pub(crate) bridges: super::bridge_run::Bridges,
     /// The HTTP API. `None` until started, and when it could not start.
     pub(crate) api: Option<ApiHost>,
     /// Each page's CDP websocket. Started and stopped with the API.
@@ -214,7 +224,7 @@ impl<W: ShellWindow> Runtime<W> {
             images: HashSet::new(),
             uploaded: Uploaded::default(),
             note_loader: note_run::start_loader(space_folder),
-            note_heights: HashMap::new(),
+            note_layouts: HashMap::new(),
             view_cache: specular_scene::ViewCache::default(),
             shares: super::share_run::Shares::default(),
             agents: agent_run::start_runs(options.agents),
@@ -224,10 +234,16 @@ impl<W: ShellWindow> Runtime<W> {
             loads: super::loads::Loads::default(),
             sent: None,
             prefs,
+            layouts: (options.settings.then(prefs::folder).flatten())
+                .map(|home| super::layout_run::LayoutFiles::new(&home)),
+            mods_folder: (options.settings.then(prefs::folder).flatten())
+                .map(|home| home.join("mods")),
+            mod_stats: None,
             repos_file: options.settings.then(repos_run::file).flatten(),
             folder_dialog: None,
             dropped: Vec::new(),
             dropped_at: None,
+            bridges: super::bridge_run::Bridges::default(),
             api: None,
             cdp: None,
             api_outcome: None,
@@ -301,6 +317,10 @@ impl<W: ShellWindow> Runtime<W> {
         self.load_tool_defaults();
         self.load_settings();
         self.load_theme();
+        self.load_layout();
+        #[cfg(target_os = "macos")]
+        self.install_shipped_mods();
+        self.rescan_mods();
         self.load_models();
         self.load_repos();
         if let Some(ask) = opening.ask {

@@ -15,15 +15,17 @@
 //! ```
 //!
 //! The slot fills the window beside the right panel, as the app's own
-//! layout assumes, and everything else lies over it. The app counts as
-//! covered the tab row (`CHROME_HEIGHT`), the sidebar while its model says
-//! it is visible, and the tools while they are docked
-//! (`App::covered_left`). The tools can float over the slot's top or bottom
-//! instead, covering nothing the app counts.
+//! layout assumes, and everything else lies over it. What the app counts
+//! as covered is `App::insets`, which the models carry: the tab row, the
+//! sidebar while its model says it is visible, and the tools while they are
+//! docked. The tools can float over the slot's top or bottom instead,
+//! covering nothing the app counts. A region the layout hides is not drawn
+//! and the insets do not count it (`Models::regions`), so the canvas has
+//! its room.
 //!
 //! The dock is a bar over the top of the slot. In a tab that shows its
-//! item it is always there, holding the lens, and the app counts it
-//! (`App::covered_top`). On the canvas it comes with a selection and goes
+//! item it is always there, holding the lens, and the app counts it. On the
+//! canvas it comes with a selection and goes
 //! with it, over the canvas, so nothing under it moves. The right panel is
 //! beside the slot, so opening it or dragging its edge makes the app's
 //! viewport narrower.
@@ -34,16 +36,21 @@ mod controls;
 mod dock;
 mod dropdown;
 mod field;
+mod frame;
 mod glyphs;
 mod ime;
+mod material;
 mod menu;
+mod mod_bar;
 mod named;
 mod onboarding;
+mod overlay_layer;
 mod palette;
 mod palette_row;
 mod raised;
 mod share;
 mod sidebar;
+mod sidebar_resize;
 mod slot;
 mod squircle;
 mod tabs;
@@ -53,19 +60,24 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use glam::Vec2;
-use gpui_kit::component::{ActiveTheme as _, h_flex, v_flex};
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, ExternalPaths, FocusHandle, Global,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, Styled as _, Window, div, px,
     size,
 };
-use specular_interact::{Action, CanvasAction, Event, SidebarAction, TOOLS_DOCK_WIDTH, ToolsPlace};
+use specular_interact::{Action, CanvasAction, Event, SidebarAction, ToolsPlace};
 
-pub(crate) use self::field::typed as typed_field;
-pub(crate) use self::named::shown as shown_controls;
+pub(crate) use self::chat::{composer_box, paste};
+pub(crate) use self::field::{FieldStyle, field_styled as model_field, typed as typed_field};
+pub(crate) use self::material::material;
+pub(crate) use self::named::{mark, shown as shown_controls};
 pub(crate) use self::palette::toggle as toggle_palette;
+pub(crate) use self::share::share_slot;
 use self::slot::Pointer;
+pub(crate) use self::tabs::{favicon, window_drag};
+pub(crate) use self::toolbar::{tool_options, zoom_readout};
 use crate::canvas::{self, Models};
 use crate::shell;
 use crate::surface::WindowAsks;
@@ -89,9 +101,22 @@ pub(crate) fn run(action: &Action, window: &mut Window, cx: &mut App) {
         return;
     }
     canvas::dispatch(Event::Action(action.clone()));
-    if !dropdown::list_open(window, cx) {
+    give_back_keys(window, cx);
+}
+
+/// Gives the keys back to the canvas after a control ran, unless a list it
+/// was chosen in is still open and has them, or a text field does: a mod's
+/// field that ran a command on Return keeps them for the next line.
+pub(crate) fn give_back_keys(window: &mut Window, cx: &mut App) {
+    if !dropdown::list_open(window, cx) && !in_text_field(window) {
         focus_canvas(window, cx);
     }
+}
+
+/// Whether the keys are in a text field, the Kit's own or a mod's: every
+/// one is under the `Input` key context.
+pub(crate) fn in_text_field(window: &Window) -> bool {
+    (window.context_stack().iter()).any(|context| context.contains("Input"))
 }
 
 /// Opens the name field on the row of `canvas`, or of the canvas showing,
@@ -122,40 +147,36 @@ pub(crate) fn drop_files(paths: Vec<PathBuf>, at: Vec2) {
     });
 }
 
-/// How much of the slot's left edge the Kit covers: the sidebar, and the
-/// tools while they are docked.
-fn covered_left(models: &Models) -> f32 {
-    let sidebar = if models.sidebar.visible {
-        theme::SIDEBAR_WIDTH
-    } else {
-        0.0
-    };
-    let tools = if models.toolbar.tools == ToolsPlace::Docked {
-        TOOLS_DOCK_WIDTH
-    } else {
-        0.0
-    };
-    sidebar + tools
-}
-
 /// What lies over the slot and moves with its edges: the dock's bar, and
-/// the tools while they float.
-fn over_slot(models: &Models, window: &mut Window, cx: &mut App) -> Vec<AnyElement> {
-    let left = covered_left(models);
-    let dock = dock::dock(models.dock.as_ref(), &models.toolbar, left, window, cx);
-    let mut top = theme::CHROME_HEIGHT;
+/// the tools while they float, drawn by `ribbon` when a mod draws them.
+fn over_slot(
+    models: &Models,
+    (ribbon, dock_mod): (Option<AnyElement>, Option<AnyElement>),
+    window: &mut Window,
+    cx: &mut App,
+) -> Vec<AnyElement> {
+    let left = models.insets.left;
+    let wanted = models.dock.is_some() || !models.toolbar.view.is_empty();
+    let dock = match dock_mod {
+        _ if !models.regions.dock => None,
+        Some(dock_mod) => wanted.then(|| dock::mod_bar(dock_mod, left).into_any_element()),
+        None => dock::dock(models.dock.as_ref(), &models.toolbar, left, window, cx)
+            .map(IntoElement::into_any_element),
+    };
+    let mut top = theme::chrome_top();
     if dock.is_some() {
         top += theme::DOCK_ROW;
     }
-    let mut out: Vec<AnyElement> = dock
-        .into_iter()
-        .map(IntoElement::into_any_element)
-        .collect();
-    if models.toolbar.tools != ToolsPlace::Docked {
+    let mut out: Vec<AnyElement> = dock.into_iter().collect();
+    if models.regions.toolbar && models.toolbar.tools != ToolsPlace::Docked {
         let shown = models.tool_options.as_ref();
-        out.push(
-            toolbar::floating(&models.toolbar, shown, (left, top), window, cx).into_any_element(),
-        );
+        out.push(match ribbon {
+            Some(ribbon) => {
+                mod_bar::floating(ribbon, models.toolbar.tools, (left, top)).into_any_element()
+            }
+            None => toolbar::floating(&models.toolbar, shown, (left, top), window, cx)
+                .into_any_element(),
+        });
     }
     out
 }
@@ -215,6 +236,8 @@ pub(crate) struct ShellView {
     hero: Option<Entity<onboarding::HeroPrism>>,
     /// The context menu a right press on the canvas opened, while it is.
     menu: Option<canvas_menu::CanvasMenu>,
+    /// The mods the layout names, drawn in place of the app's own panels.
+    mods: crate::mods::Mods,
 }
 
 impl ShellView {
@@ -234,57 +257,61 @@ impl ShellView {
             chat: chat::ChatUi::new(window, cx),
             hero: None,
             menu: None,
+            mods: crate::mods::Mods::default(),
         }
     }
 }
 
 impl ShellView {
-    /// Whether the keys are in one of the Kit's text fields: the composer,
-    /// or a model field being typed in (a canvas's name, a dock field).
+    /// Whether the keys are in a text field: the composer, a model field
+    /// being typed in (a canvas's name, a dock field), or a mod's.
     pub(crate) fn typing(&self, window: &Window, cx: &mut App) -> bool {
         let in_field = window
             .focused(cx)
             .is_some_and(|focused| field::holds_focus(&focused, window, cx));
-        in_field || self.composer_focused(window, cx)
+        in_field || self.composer_focused(window, cx) || in_text_field(window)
     }
 }
 
 impl ShellView {
-    /// The canvas slot with what floats over it, and the right panel.
-    fn slot_row(
+    /// The canvas slot, from the window's corner to the canvas block's far
+    /// corner, with what floats over it (the dock, a floating toolbar, the
+    /// notices) and the mods that run out of sight.
+    fn slot(
         &mut self,
         models: Option<&Models>,
+        canvas: Option<specular_interact::Frame>,
+        (ribbon, dock, toast): (Option<AnyElement>, Option<AnyElement>, Option<AnyElement>),
         window: &mut Window,
         cx: &mut Context<'_, Self>,
     ) -> AnyElement {
-        h_flex()
-            .size_full()
-            .items_start()
-            .child(
-                div()
-                    .relative()
-                    .size_full()
-                    .child(self.canvas_slot(window, cx))
-                    .children(models.map_or_default(|models| over_slot(models, window, cx))),
-            )
-            .when_some(models, |row, models| {
-                row.children(self.chat_panel(&models.chat, window, cx))
-            })
+        let frame = div().absolute().left_0().top_0();
+        let frame = match canvas {
+            Some(canvas) => frame.w(px(canvas.right())).h(px(canvas.bottom())),
+            None => frame.size_full(),
+        };
+        frame
+            .children(self.mods.background(cx))
+            .child(self.canvas_slot(window, cx))
+            .children(models.map_or_default(|models| over_slot(models, (ribbon, dock), window, cx)))
+            .children(toast)
             .into_any_element()
     }
 }
 
-/// The hairline under the chrome.
-fn chrome_hairline() -> impl IntoElement {
-    // The hairline under the chrome is its own, drawn last so
-    // nothing covers it.
-    div()
-        .absolute()
-        .top(px(theme::CHROME_HEIGHT - 1.0))
-        .left_0()
-        .right_0()
-        .h(px(1.0))
-        .bg(theme::solid(theme::toolbar_border()))
+impl ShellView {
+    /// The strips over the side panels' inner edges that drag them wider.
+    fn resize_handles(&self, models: &Models) -> Vec<AnyElement> {
+        let chat = (models.regions.chat)
+            .then(|| self.chat_resize_handle(&models.chat))
+            .flatten()
+            .map(IntoElement::into_any_element);
+        let sidebar = (models.regions.sidebar)
+            .then(|| sidebar_resize::handle(&models.sidebar))
+            .flatten()
+            .map(IntoElement::into_any_element);
+        chat.into_iter().chain(sidebar).collect()
+    }
 }
 
 impl Render for ShellView {
@@ -294,8 +321,19 @@ impl Render for ShellView {
         if let Some(wanted) = self.asks.field.take() {
             field::want(wanted, cx);
         }
+        if let Some(command) = self.asks.shell.take() {
+            window.defer(cx, move |_, cx| crate::menus::run_shell(command, cx));
+        }
         named::begin_frame();
         let models = canvas::models();
+        if let Some(models) = models.as_ref() {
+            crate::window_buttons::apply(models.layout.look.traffic_lights, window);
+        }
+        let size = window.viewport_size();
+        let size = (f32::from(size.width), f32::from(size.height));
+        let boxes = models.as_ref().map(|models| frame::boxes(models, size));
+        let canvas = boxes.as_deref().map(frame::canvas_frame);
+        theme::set_chrome_top(canvas.map_or(theme::TAB_ROW, |canvas| canvas.y));
         if let Some(model) = models
             .as_ref()
             .and_then(|models| models.onboarding.as_ref())
@@ -304,20 +342,50 @@ impl Render for ShellView {
                 .hero
                 .get_or_insert_with(|| cx.new(|_| onboarding::HeroPrism::default())))
             .clone();
+            if let Some(welcome) = self.welcome_mod(models.as_ref(), &hero, window, cx) {
+                return welcome;
+            }
             return onboarding::onboarding(model, hero).into_any_element();
         }
         if let Some(hero) = self.hero.take() {
+            crate::mods::set_hero(None);
             let images = hero.update(cx, |hero, _| hero.take_images());
             crate::avatar::drop_images(images, window);
             grow_from_welcome(window, cx);
         }
-        let menu = self.canvas_menu(window, cx);
-        div()
+        let panels = self.mod_panels(models.as_ref(), window, cx);
+        let menu = self.canvas_menu(models.as_ref(), window, cx);
+        let mod_bar::ModPanels {
+            zoom_in_tabs,
+            floating: floating_ribbon,
+            dock,
+            toast,
+        } = panels;
+        let blocks = match (models.as_ref(), boxes.as_deref()) {
+            (Some(models), Some(boxes)) => self.blocks(models, boxes, zoom_in_tabs, window, cx),
+            _ => Vec::new(),
+        };
+        let overlays = models.as_ref().map_or_default(|models| {
+            overlay_layer::layer(&models.mod_overlays, |id| self.mods.copy(id, cx), size)
+        });
+        let backdrop = match (models.as_ref(), canvas) {
+            (Some(models), Some(canvas)) => frame::backdrop(
+                models,
+                specular_interact::Frame::sized(size.0, size.1),
+                canvas,
+            ),
+            _ => Vec::new(),
+        };
+        let mut root = div()
             .id("shell")
             .size_full()
             .relative()
             .text_color(cx.theme().foreground)
-            .text_size(px(12.0))
+            .text_size(px(crate::look::font_size()));
+        if let Some(font) = crate::look::font() {
+            root = root.font_family(font);
+        }
+        root
             // A drop the canvas slot did not take, on the toolbar, the
             // sidebar or the right panel, lands where a paste would.
             .on_drop(|paths: &ExternalPaths, _, _| {
@@ -325,30 +393,23 @@ impl Render for ShellView {
                     (canvas.runtime).drop_files(paths.paths().iter().cloned(), None);
                 });
             })
-            .child(self.slot_row(models.as_ref(), window, cx))
-            .when_some(models.as_ref(), |root, models: &Models| {
-                root.when(models.sidebar.visible, |root| {
-                    root.child(Self::sidebar(&models.sidebar, window, cx))
-                })
-                .child(
-                    v_flex()
-                        .id("chrome")
-                        .occlude()
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .right_0()
-                        .bg(theme::solid(theme::toolbar()))
-                        .child(tabs::tabs(&models.strip, &models.toolbar)),
-                )
-                .when(models.toolbar.tools == ToolsPlace::Docked, |root| {
-                    let left = covered_left(models) - TOOLS_DOCK_WIDTH;
-                    let shown = models.tool_options.as_ref();
-                    root.child(toolbar::docked(&models.toolbar, shown, left, window, cx))
-                })
-                .children(self.chat_resize_handle(&models.chat))
-            })
-            .child(chrome_hairline())
+            .children(backdrop)
+            .child(self.slot(
+                models.as_ref(),
+                canvas,
+                (floating_ribbon, dock, toast),
+                window,
+                cx,
+            ))
+            .children(blocks)
+            .children(models.as_ref().and_then(|models| {
+                frame::window_border(models, crate::window_buttons::corner_radius(window))
+            }))
+            .children(
+                models
+                    .as_ref()
+                    .map_or_default(|models| self.resize_handles(models)),
+            )
             // A drag that began on the canvas is the canvas's until it ends:
             // nothing it passes over hovers, opens a tooltip or scrolls.
             .when(self.pointer.held(), |root| {
@@ -360,6 +421,7 @@ impl Render for ShellView {
                 root.child(div().absolute().inset_0().occlude())
             })
             .children(menu)
+            .children(overlays)
             .into_any_element()
     }
 }

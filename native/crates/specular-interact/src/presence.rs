@@ -14,25 +14,25 @@
 //! A read is announced the same way and answered at once: the cursor goes
 //! to what the agent looked at and nothing waits for it, so the act that
 //! often follows on the same element starts with the cursor there.
+//!
+//! The canvas verbs move the same cursor ([`canvas`]): an API call that
+//! changes the canvas sends it to what changed, after the change.
+
+pub(crate) mod canvas;
+mod cursor;
+pub(crate) mod follow;
+mod roster;
+
+pub use self::roster::{AGENT_COLORS, AgentBadge, agent_color};
+pub(crate) use self::roster::{agents_json, name as name_agent};
+
+use std::collections::BTreeMap;
 
 use glam::DVec2;
-use specular_doc::EntityId;
+use specular_doc::{EntityId, Rect};
 
+use self::cursor::{Anchor, Cursor, GLOW_MS, IDLE_MS, NEGLIGIBLE_PX, RIPPLE_MS, travel_ms};
 use crate::{App, Effect};
-
-/// The travel time of a move too short to see, in milliseconds.
-const TRAVEL_BASE_MS: f64 = 90.0;
-/// What each screen pixel of distance adds to it.
-const TRAVEL_MS_PER_PX: f64 = 0.35;
-/// The longest travel, however far.
-const TRAVEL_MAX_MS: f64 = 320.0;
-/// The screen distance, in pixels, under which a cursor is already there.
-const NEGLIGIBLE_PX: f64 = 2.0;
-/// How long a cursor rests on its target before the act, so the arrival is
-/// seen as one.
-const SETTLE_MS: u64 = 40;
-/// How long a cursor stays after its session's last act.
-const IDLE_MS: u64 = 10_000;
 
 /// agent-browser is about to act on a page and is waiting to be told to.
 #[derive(Debug, Clone, PartialEq)]
@@ -60,71 +60,15 @@ pub struct AgentCursor {
     /// Which of the cursor colours it has. Cursors are numbered as their
     /// sessions first act.
     pub slot: usize,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct Cursor {
-    agent: String,
-    page: EntityId,
-    /// The target, in the CSS pixels of the page's document, so the cursor
-    /// stays on what it points at when the page scrolls.
-    anchor: DVec2,
-    /// Where the travel began, in canvas space.
-    from: DVec2,
-    /// The clock at the first tick after the travel began.
-    started_ms: Option<u64>,
-    travel_ms: u64,
-    label: &'static str,
-    /// The act waiting for the arrival.
-    waiting: Option<u64>,
-    /// The clock at the latest act, once a tick has seen it.
-    acted_ms: Option<u64>,
-    slot: usize,
-}
-
-impl Cursor {
-    /// How much of the travel is done at `now_ms`, eased out.
-    fn progress(&self, now_ms: u64) -> f64 {
-        let Some(started) = self.started_ms else {
-            return 0.0;
-        };
-        if self.travel_ms == 0 {
-            return 1.0;
-        }
-        let linear = (now_ms.saturating_sub(started) as f64 / self.travel_ms as f64).min(1.0);
-        1.0 - (1.0 - linear).powi(3)
-    }
-
-    /// The target in the page's viewport CSS pixels, as it is scrolled now.
-    fn in_viewport(&self, app: &App) -> DVec2 {
-        self.anchor - app.page_scroll(&self.page)
-    }
-
-    fn position(&self, app: &App) -> Option<DVec2> {
-        let target = app
-            .page_placement(&self.page)?
-            .to_canvas(self.in_viewport(app));
-        Some(self.from.lerp(target, self.progress(app.session.now_ms)))
-    }
-
-    /// Whether the cursor rests on something the page has scrolled out of
-    /// its viewport.
-    fn scrolled_away(&self, app: &App) -> bool {
-        let Some(placement) = app.page_placement(&self.page) else {
-            return false;
-        };
-        let at = self.in_viewport(app);
-        let (width, height) = (
-            f64::from(placement.viewport.width),
-            f64::from(placement.viewport.height),
-        );
-        let inside = (0.0..=width).contains(&at.x) && (0.0..=height).contains(&at.y);
-        self.arrived(app.session.now_ms) && !inside
-    }
-
-    fn arrived(&self, now_ms: u64) -> bool {
-        (self.started_ms).is_some_and(|started| now_ms >= started + self.travel_ms + SETTLE_MS)
-    }
+    /// How opaque it is, from 0 to 1: it fades out once its agent is gone.
+    pub alpha: f32,
+    /// Where the tip just was on its way, nearest first, in canvas space.
+    pub trail: Vec<DVec2>,
+    /// How far the ring of its landing has spread, from 0 to 1.
+    pub ripple: Option<f32>,
+    /// The items it read lately, in canvas space, each with how lit it
+    /// still is, from 1 to 0.
+    pub read: Vec<(Rect, f32)>,
 }
 
 /// Every agent cursor of the session.
@@ -135,6 +79,32 @@ pub(crate) struct Presence {
     seen: usize,
     /// Counts the ticks that moved a cursor or took one away.
     epoch: u64,
+    /// The agent the camera follows.
+    following: Option<String>,
+    /// The names agents gave themselves.
+    names: BTreeMap<String, String>,
+}
+
+impl Presence {
+    fn held(&self, agent: &str) -> Option<usize> {
+        (self.cursors.iter()).position(|cursor| cursor.agent == agent)
+    }
+
+    /// Puts `cursor` in the place of `agent`'s, keeping its colour, or adds
+    /// it with the next colour. An act the old one held was given up on by
+    /// whoever asked, so it is let go.
+    fn put(&mut self, mut cursor: Cursor, effects: &mut Vec<Effect>) {
+        if let Some(index) = self.held(&cursor.agent) {
+            let old = &mut self.cursors[index];
+            cursor.slot = old.slot;
+            effects.extend((old.waiting.take()).map(|ticket| Effect::AgentGo { ticket }));
+            *old = cursor;
+        } else {
+            cursor.slot = self.seen;
+            self.seen += 1;
+            self.cursors.push(cursor);
+        }
+    }
 }
 
 /// The agent a session belongs to: the CLI runs one agent-browser session
@@ -171,85 +141,113 @@ pub(crate) fn on_act(app: &mut App, act: AgentAct, effects: &mut Vec<Effect>) {
     };
     let target = placement.to_canvas(act.at);
     let agent = agent_of(&act.session);
-    let held = (app.session.presence.cursors.iter()).position(|cursor| cursor.agent == agent);
+    let label = label_of(&act.action);
+    let held = app.session.presence.held(agent);
     // A cursor already on its way to this point keeps going: the act waits
     // for what is left of that travel and no new one starts.
-    let anchor = act.at + app.page_scroll(&act.page);
+    let css = act.at + app.page_scroll(&act.page);
     if let Some(index) = held {
+        let now = app.session.now_ms;
         let cursor = &mut app.session.presence.cursors[index];
-        let same = cursor.page == act.page && (cursor.anchor - anchor).length() < NEGLIGIBLE_PX;
-        if same && !cursor.arrived(app.session.now_ms) {
+        let same = matches!(&cursor.anchor, Anchor::Page { page, css: at }
+            if *page == act.page && (*at - css).length() < NEGLIGIBLE_PX);
+        if same && !cursor.arrived(now) {
             effects.extend((cursor.waiting.take()).map(|ticket| Effect::AgentGo { ticket }));
             cursor.waiting = act.ticket;
-            cursor.label = label_of(&act.action);
+            cursor.label = label;
+            cursor.ripples = label == "clicking";
             return;
         }
     }
-    let from = held
-        .and_then(|index| app.session.presence.cursors[index].position(app))
-        .unwrap_or_else(|| placement.to_canvas(DVec2::ZERO));
-    let distance_px = (target - from).length() * f64::from(app.session.camera.zoom);
-    let travel_ms = if !app.session.motion.enabled() || distance_px < NEGLIGIBLE_PX {
-        0
-    } else {
-        (TRAVEL_BASE_MS + TRAVEL_MS_PER_PX * distance_px).min(TRAVEL_MAX_MS) as u64
-    };
-    let presence = &mut app.session.presence;
-    let slot = held.map_or(presence.seen, |index| presence.cursors[index].slot);
-    let mut cursor = Cursor {
-        agent: agent.to_owned(),
+    let anchor = Anchor::Page {
         page: act.page,
-        anchor,
-        from,
-        started_ms: None,
-        travel_ms,
-        label: label_of(&act.action),
-        waiting: act.ticket,
-        acted_ms: None,
-        slot,
+        css,
     };
-    if travel_ms == 0
+    let mut cursor = if let Some(index) = held {
+        let mut cursor = app.session.presence.cursors[index].clone();
+        cursor.head_to(app, anchor, label);
+        cursor.stops.clear();
+        cursor
+    } else {
+        let from = placement.to_canvas(DVec2::ZERO);
+        let mut cursor = Cursor::new(agent, anchor, from, label);
+        cursor.travel_ms = travel_ms(app, from, target, label);
+        cursor
+    };
+    cursor.acted_ms = None;
+    cursor.ripples = label == "clicking";
+    cursor.waiting = act.ticket;
+    if cursor.travel_ms == 0
         && let Some(ticket) = cursor.waiting.take()
     {
         effects.push(Effect::AgentGo { ticket });
     }
-    if let Some(index) = held {
-        // An act this one overtakes was given up on by whoever asked.
-        if let Some(ticket) = presence.cursors[index].waiting {
-            effects.push(Effect::AgentGo { ticket });
-        }
-        presence.cursors[index] = cursor;
-    } else {
-        presence.seen += 1;
-        presence.cursors.push(cursor);
-    }
+    app.session.presence.put(cursor, effects);
 }
 
-/// Moves the cursors with the clock, answers the acts whose cursor has
-/// arrived and drops the cursors of sessions that have gone quiet.
+/// Moves the cursors with the clock: answers the acts whose cursor has
+/// arrived, sends a canvas act on to its next stop and drops the cursors
+/// of sessions that have gone quiet.
 pub(crate) fn on_tick(app: &mut App, effects: &mut Vec<Effect>) {
     let now = app.session.now_ms;
-    let presence = &mut app.session.presence;
-    if presence.cursors.is_empty() {
+    if app.session.presence.cursors.is_empty() {
         return;
     }
     let mut changed = false;
-    for cursor in &mut presence.cursors {
-        changed |= !cursor.arrived(now);
+    let mut onward = Vec::new();
+    for (index, cursor) in app.session.presence.cursors.iter_mut().enumerate() {
+        cursor
+            .read
+            .retain(|(_, at)| now.saturating_sub(*at) < GLOW_MS);
+        changed |= !cursor.arrived(now) || cursor.ripple(now).is_some() || !cursor.read.is_empty();
         cursor.started_ms.get_or_insert(now);
         cursor.acted_ms.get_or_insert(now);
-        if cursor.arrived(now)
-            && let Some(ticket) = cursor.waiting.take()
-        {
+        if cursor.arrived(now) && cursor.landed_ms.is_none() {
+            cursor.landed_ms = Some(now);
             cursor.acted_ms = Some(now);
-            effects.push(Effect::AgentGo { ticket });
+            cursor
+                .read
+                .extend(cursor.item.take().map(|item| (item, now)));
+            effects.extend((cursor.waiting.take()).map(|ticket| Effect::AgentGo { ticket }));
+        }
+        let thinking = cursor.thinking(now);
+        changed |= thinking != cursor.drawn_thinking;
+        cursor.drawn_thinking = thinking;
+        let dwell = canvas::dwell_ms(cursor.label);
+        let dwelt = (cursor.landed_ms).is_some_and(|landed| now >= landed + dwell);
+        if dwelt && !cursor.stops.is_empty() {
+            onward.push(index);
         }
     }
+    for index in onward {
+        let mut cursor = app.session.presence.cursors[index].clone();
+        if let Some(stop) = cursor.stops.pop_front() {
+            let canvas = app.space.active().id.clone();
+            cursor.head_to(
+                app,
+                Anchor::Canvas {
+                    canvas,
+                    at: stop.at,
+                },
+                stop.label,
+            );
+            cursor.item = stop.item;
+            cursor.started_ms = Some(now);
+        }
+        app.session.presence.cursors[index] = cursor;
+        changed = true;
+    }
+    let motion = app.session.motion.enabled();
+    let presence = &mut app.session.presence;
     let before = presence.cursors.len();
     (presence.cursors).retain(|cursor| {
         cursor.waiting.is_some()
+            || !cursor.stops.is_empty()
             || (cursor.acted_ms).is_none_or(|acted| now.saturating_sub(acted) < IDLE_MS)
     });
+    // A thinking cursor wanders and a quiet one fades, both on the clock.
+    changed |= (presence.cursors.iter())
+        .any(|cursor| (motion && cursor.thinking(now)) || cursor.alpha(now) < 1.0);
     if changed || presence.cursors.len() != before {
         presence.epoch += 1;
     }
@@ -263,27 +261,49 @@ impl App {
         if self.settings.hidden_cursors.agent {
             return Vec::new();
         }
+        let now = self.session.now_ms;
         (self.session.presence.cursors.iter())
-            .filter(|cursor| {
-                (self.document.entity(&cursor.page))
-                    .is_some_and(|entity| crate::shown_rect(self, entity).is_some())
-                    && !cursor.scrolled_away(self)
-            })
+            .filter(|cursor| self.points_at_shown(cursor) && !cursor.scrolled_away(self))
             .filter_map(|cursor| {
                 Some(AgentCursor {
                     at: cursor.position(self)?,
-                    label: cursor.label,
+                    label: if cursor.thinking(now) {
+                        "thinking"
+                    } else {
+                        cursor.label
+                    },
                     slot: cursor.slot,
+                    alpha: cursor.alpha(now),
+                    trail: cursor.trail(self),
+                    ripple: cursor.ripple(now),
+                    read: cursor.glow(now),
                 })
             })
             .collect()
     }
 
-    /// Whether an agent cursor is on its way, so the shell keeps ticking
-    /// and drawing until it lands.
+    fn points_at_shown(&self, cursor: &Cursor) -> bool {
+        match &cursor.anchor {
+            Anchor::Page { page, .. } => (self.document.entity(page))
+                .is_some_and(|entity| crate::shown_rect(self, entity).is_some()),
+            Anchor::Canvas { canvas, .. } => *canvas == self.space.active().id,
+        }
+    }
+
+    /// Whether an agent cursor is on its way, rippling or lighting what it
+    /// read, or the camera is catching up with a followed one, so the shell
+    /// keeps ticking and drawing a frame at a time until it settles.
     pub fn agent_cursor_travelling(&self) -> bool {
         let now = self.session.now_ms;
-        (self.session.presence.cursors.iter()).any(|cursor| !cursor.arrived(now))
+        let cursors = (self.session.presence.cursors.iter()).any(|cursor| {
+            !cursor.arrived(now)
+                || !cursor.stops.is_empty()
+                || !cursor.read.is_empty()
+                || cursor
+                    .landed_ms
+                    .is_some_and(|landed| cursor.ripples && now.saturating_sub(landed) < RIPPLE_MS)
+        });
+        cursors || follow::moving(self)
     }
 
     /// Counts the ticks that moved an agent cursor or took one away, so a

@@ -49,7 +49,7 @@ pub(crate) type LaidOut = (EntityId, CssSize);
 /// The page the tab showing presents at a size of its own.
 fn presentation(app: &App) -> Option<LaidOut> {
     let entity = app.document.entity(app.shown_item()?)?;
-    if !is_page(entity) {
+    if !is_page(app, entity) {
         return None;
     }
     let rect = crate::showing::presented_rect(app, entity)?;

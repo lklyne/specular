@@ -7,7 +7,9 @@ mod tests;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use crate::{Annotation, AnnotationId, Edge, EdgeId, Entity, EntityId, ItemId, JsonMap, Kind};
+use crate::{
+    Annotation, AnnotationId, Edge, EdgeId, Entity, EntityId, ItemId, JsonMap, Kind, ModNeed,
+};
 
 /// A canvas: entities and edges in one stack order, plus annotations.
 ///
@@ -179,6 +181,40 @@ impl Document {
     /// the command system, so changing them is not an undo step.
     pub fn extra_mut(&mut self) -> &mut JsonMap {
         &mut self.extra
+    }
+
+    /// Gives the mod item `id` the display list it last drew. Not an undo
+    /// step: a snapshot follows the item's props, which are. Returns whether
+    /// anything changed; a change moves the [`stamp`](Self::stamp), so it is
+    /// saved.
+    pub fn set_mod_snapshot(&mut self, id: &EntityId, draws: Vec<crate::ModDraw>) -> bool {
+        let Some(Entity {
+            kind: Kind::Mod(item),
+            ..
+        }) = self.entities.get_mut(id)
+        else {
+            return false;
+        };
+        if item.snapshot.as_ref() == Some(&draws) {
+            return false;
+        }
+        item.snapshot = Some(draws);
+        self.stamp = fresh_stamp();
+        true
+    }
+
+    /// The mods the canvas's items use, each once, in stacking order: what
+    /// `specular.mods` lists.
+    pub fn mod_needs(&self) -> Vec<ModNeed> {
+        let mut needs: Vec<ModNeed> = Vec::new();
+        for entity in self.entities() {
+            if let Kind::Mod(item) = &entity.kind
+                && !needs.iter().any(|need| need.name == item.name)
+            {
+                needs.push(item.need());
+            }
+        }
+        needs
     }
 
     /// Whether an entity or edge already uses this id.

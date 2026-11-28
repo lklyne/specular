@@ -36,6 +36,12 @@ pub enum PageSourceError {
 /// questions, so one id never names both.
 pub const DEVTOOLS_CLIENT_ID_BASE: i32 = 1 << 30;
 
+/// The name of the binding the page bridge is carried on: a function on
+/// the page's `window` that hands one JSON request to the app. The script
+/// the app puts in the page takes it out of reach of the page's own code
+/// and wraps it as `window.specular`.
+pub const BRIDGE_BINDING: &str = "__specular";
+
 /// Where a page's devtools messages go: the answers to what
 /// [`PageSource::devtools_send`] sent, and every event the page raises. The
 /// text is one devtools-protocol JSON message. Called on the main thread,
@@ -248,6 +254,22 @@ pub trait PageSource {
         kind: PointKind,
         point: Vec2,
     ) -> Result<(), PageSourceError>;
+
+    /// Puts the page bridge in the page, or takes it out with `None`.
+    /// `script` installs `window.specular` over the
+    /// [`BRIDGE_BINDING`] in the document shown now and in every document
+    /// the page loads after, until the bridge is taken out; calls come back
+    /// as [`PageEvent::BridgeCall`]. A source whose pages run no script has
+    /// nothing to put in.
+    fn set_bridge(&mut self, _page: PageId, _script: Option<&str>) -> Result<(), PageSourceError> {
+        Ok(())
+    }
+
+    /// Runs `script`, an answer to a bridge call or a value a page
+    /// subscribed to, in the page's document. Its result is not read.
+    fn bridge_send(&mut self, _page: PageId, _script: &str) -> Result<(), PageSourceError> {
+        Ok(())
+    }
 
     /// Port of the backend's remote-debugging (CDP) endpoint, if enabled.
     fn devtools_port(&self) -> Option<u16>;

@@ -4,7 +4,9 @@ use std::mem;
 
 use specular_doc::Document;
 
-use super::super::{Canvas, CanvasId, CanvasState, CanvasView, Parked, canvas_file_name};
+use super::super::{
+    Canvas, CanvasId, CanvasState, CanvasView, Parked, ProjectId, canvas_file_name,
+};
 use crate::focus::set_focus;
 use crate::pages::{self, HostedPage};
 use crate::showing::{SavedTab, Tabs};
@@ -30,20 +32,28 @@ pub(super) fn parked(
     }))
 }
 
-/// A canvas named `name` with an id and a file name none of `others` has.
+/// A canvas of `project` named `name`, with an id no canvas of `others`
+/// has and a file name none of that project's has.
 pub(super) fn new_canvas(
     session: &mut Session,
     others: &[Canvas],
+    project: &ProjectId,
     name: String,
     state: Parked,
 ) -> Canvas {
     loop {
         let id = CanvasId::new(format!("tab_{}", session.next_id()));
         let file = canvas_file_name(&name, &id);
-        let clash = (others.iter()).any(|canvas| canvas.id == id || canvas.file == file);
+        let clash = (others.iter()).any(|canvas| {
+            canvas.id == id
+                || canvas.tab == id.as_str()
+                || (canvas.project == *project && canvas.file == file)
+        });
         if !clash {
             return Canvas {
+                tab: id.as_str().to_owned(),
                 id,
+                project: project.clone(),
                 name,
                 file,
                 state: CanvasState::Parked(Box::new(state)),
@@ -59,6 +69,9 @@ pub(super) fn activate(app: &mut App, index: usize, effects: &mut Vec<Effect>) {
         return;
     }
     leave(app, effects);
+    if app.space.canvases[index].project != app.space.canvases[old].project {
+        effects.push(Effect::ProjectEntered);
+    }
     let before = pages::snapshot(app);
     let leaving = Parked {
         document: mem::take(&mut app.document),

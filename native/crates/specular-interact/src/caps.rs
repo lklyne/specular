@@ -43,7 +43,7 @@ pub(crate) fn min_size(kind: &Kind) -> DVec2 {
         Kind::File(_) => DVec2::new(80.0, 80.0),
         Kind::Group(_) => DVec2::new(120.0, 80.0),
         Kind::Drawing(_) => DVec2::new(16.0, 16.0),
-        Kind::Shape(_) => DVec2::new(24.0, 24.0),
+        Kind::Shape(_) | Kind::Mod(_) => DVec2::new(24.0, 24.0),
     }
 }
 
@@ -67,7 +67,7 @@ pub(crate) fn aspect_mode(kind: &Kind) -> AspectMode {
             }
         }
         Kind::Shape(_) => AspectMode::ShiftLocks,
-        Kind::Page(_) | Kind::Group(_) | Kind::Drawing(_) => AspectMode::Free,
+        Kind::Page(_) | Kind::Group(_) | Kind::Drawing(_) | Kind::Mod(_) => AspectMode::Free,
     }
 }
 
@@ -75,7 +75,12 @@ pub(crate) fn aspect_mode(kind: &Kind) -> AspectMode {
 /// dots crowd a selected stroke and make it awkward to grab.
 pub(crate) const fn has_anchors(kind: &Kind) -> bool {
     match kind {
-        Kind::Page(_) | Kind::Text(_) | Kind::File(_) | Kind::Group(_) | Kind::Shape(_) => true,
+        Kind::Page(_)
+        | Kind::Text(_)
+        | Kind::File(_)
+        | Kind::Group(_)
+        | Kind::Shape(_)
+        | Kind::Mod(_) => true,
         Kind::Drawing(_) => false,
     }
 }

@@ -102,7 +102,8 @@ fn on_wake(cx: &mut App) {
         if let Some(system) = theme::choose(models.theme) {
             canvas::dispatch(Event::SystemAppearance(system));
         }
-        if models.appearance != theme::appearance() {
+        let restyled = crate::look::set(&models.look);
+        if restyled || models.appearance != theme::appearance() {
             theme::apply(models.appearance, cx);
             cx.refresh_windows();
         }
@@ -182,7 +183,10 @@ fn window_options(launch: &Launch, cx: &App) -> WindowOptions {
         titlebar: Some(TitlebarOptions {
             title: Some("Specular".into()),
             appears_transparent: true,
-            traffic_light_position: Some(point(px(14.0), px(13.0))),
+            traffic_light_position: Some(point(
+                px(crate::window_buttons::NATIVE.0),
+                px(crate::window_buttons::NATIVE.1),
+            )),
         }),
         window_min_size: Some(size(px(640.0), px(400.0))),
         ..WindowOptions::default()

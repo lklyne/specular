@@ -3,8 +3,10 @@
 use std::time::Instant;
 
 use specular_interact::{
-    Appearance, ChatModel, ControlsModel, Menu, OnboardingModel, SidebarModel, Theme, ToolbarModel,
-    ViewStrip, chat, dock, menus, onboarding, sidebar, tool_options, toolbar, view_strip,
+    Appearance, ChatModel, ControlsModel, Insets, Layout, Menu, OnboardingModel, Overlay,
+    OverlaySpec, Regions, Resolved, Shown, SidebarModel, Theme, Toggles, ToolbarModel, ViewStrip,
+    chat, dock, menus, onboarding, publish_live, publish_state, sidebar, tool_options, toolbar,
+    view_strip,
 };
 use specular_shell::Runtime;
 
@@ -35,6 +37,31 @@ pub(crate) struct Models {
     pub(crate) appearance: Appearance,
     /// The choice behind it, which `AppKit` is told of.
     pub(crate) theme: Theme,
+    /// Which regions the layout lets be drawn.
+    pub(crate) regions: Regions,
+    /// How far in from each edge the canvas is seen, which places the
+    /// regions drawn over it.
+    pub(crate) insets: Insets,
+    /// The layout in force, whose nodes name the mods drawn in place of
+    /// the app's own panels.
+    pub(crate) layout: Layout,
+    /// The overlays the layout and the toggles let be drawn.
+    pub(crate) overlays: Vec<Overlay>,
+    /// What was toggled over the layout, which hides its blocks.
+    pub(crate) toggles: Toggles,
+    /// What the app shows now that decides the room its own ids take.
+    pub(crate) shown: Shown,
+    /// The layout's look, its theme's colours under its own.
+    pub(crate) look: Resolved,
+    /// The mod overlays open, bottom first.
+    pub(crate) mod_overlays: Vec<OverlaySpec>,
+}
+
+impl Models {
+    /// Whether `overlay` may be drawn.
+    pub(crate) fn shows(&self, overlay: Overlay) -> bool {
+        self.overlays.contains(&overlay)
+    }
 }
 
 impl Models {
@@ -56,6 +83,16 @@ impl Models {
             onboarding: onboarding(app),
             appearance: app.appearance(),
             theme: app.theme(),
+            regions: app.regions(),
+            insets: app.insets(),
+            layout: app.layout().clone(),
+            overlays: (Overlay::ALL.into_iter())
+                .filter(|overlay| !app.is_hidden(overlay.name()))
+                .collect(),
+            toggles: app.layout_toggles().clone(),
+            shown: Shown::of(app),
+            look: app.look(),
+            mod_overlays: app.overlays().to_vec(),
         }
     }
 }
@@ -80,6 +117,10 @@ impl Canvas {
             if std::mem::take(&mut self.unseen) {
                 self.wake_now();
             }
+        } else if publish_live(&mut self.state.borrow_mut(), self.runtime.app()) {
+            // A mod acts on a stroke or a call as it happens; the panels
+            // wait for the gate.
+            self.wake_now();
         }
         let menu = &self.runtime.app().session().panel.menu;
         if *menu != self.menu {
@@ -100,6 +141,12 @@ impl Canvas {
     pub(super) fn read_models(&mut self) {
         if !std::mem::take(&mut self.stale) {
             return;
+        }
+        let moved = publish_state(&mut self.state.borrow_mut(), self.runtime.app());
+        // A key can move with no model changing (a mod reads keys no
+        // native panel draws), and the mods render on GPUI's next draw.
+        if !moved.is_empty() {
+            self.unseen = true;
         }
         let models = Models::of(&self.runtime);
         if models != self.models {

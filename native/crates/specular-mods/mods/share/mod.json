@@ -1,0 +1,8 @@
+{
+  "api": "1.2",
+  "title": "Share",
+  "place": "share",
+  "palette": [
+    { "title": "Copy the canvas link", "run": "share.copy-link" }
+  ]
+}

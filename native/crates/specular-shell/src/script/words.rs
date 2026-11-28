@@ -1,9 +1,9 @@
-//! The words a step is made of: points, chords, keys, tools, actions.
+//! The words a step is made of: points, chords, keys, tools, arguments.
 
 use anyhow::{Context as _, bail};
 use glam::Vec2;
 use specular_core::{Camera, Modifiers};
-use specular_interact::{Action, ArrangeMode, Key, Theme, Tool};
+use specular_interact::{Key, Theme, Tool};
 
 use super::CameraArg;
 
@@ -130,52 +130,14 @@ pub(crate) fn theme_named(name: &str) -> anyhow::Result<Theme> {
     }
 }
 
-/// Each tool and the word a script names it by.
-pub(super) const TOOLS: [(&str, Tool); 9] = [
-    ("select", Tool::Select),
-    ("page", Tool::AddPage),
-    ("text", Tool::AddText),
-    ("sticky", Tool::AddSticky),
-    ("document", Tool::AddDocument),
-    ("shape", Tool::AddShape),
-    ("draw", Tool::Draw),
-    ("comment", Tool::Comment),
-    ("inspect", Tool::Inspect),
-];
-
 pub(super) fn tool_named(name: &str) -> anyhow::Result<Tool> {
-    match TOOLS.iter().find(|(word, _)| *word == name) {
-        Some((_, tool)) => Ok(*tool),
-        None => bail!("unknown tool `{name}`"),
+    Tool::named(name).with_context(|| format!("unknown tool `{name}`"))
+}
+
+/// The arguments of a `run` step: JSON, or nothing.
+pub(super) fn run_args(text: &str) -> anyhow::Result<serde_json::Value> {
+    if text.is_empty() {
+        return Ok(serde_json::Value::Null);
     }
-}
-
-/// The word a script names `tool` by.
-pub(super) fn tool_word(tool: Tool) -> &'static str {
-    TOOLS
-        .iter()
-        .find(|(_, named)| *named == tool)
-        .map_or("?", |(word, _)| word)
-}
-
-pub(super) fn action_named(name: &str) -> anyhow::Result<Action> {
-    Ok(match name {
-        "annotate-selection" => Action::AnnotateSelection,
-        "arrange-row" => Action::Arrange(ArrangeMode::Row),
-        "arrange-column" => Action::Arrange(ArrangeMode::Column),
-        "arrange-grid" => Action::Arrange(ArrangeMode::Grid),
-        "resolve-comment" => Action::ResolveComment(None),
-        "page-back" => Action::PageBack,
-        "page-forward" => Action::PageForward,
-        "page-reload" => Action::PageReload,
-        "page-stop" => Action::PageStop,
-        "zoom-to-fit" => Action::ZoomToFit,
-        "toggle-sync" => Action::ToggleSync,
-        "undo" => Action::Undo,
-        "redo" => Action::Redo,
-        other => match super::facts_canvas::action_named(other) {
-            Some(action) => action,
-            None => bail!("unknown action `{other}`"),
-        },
-    })
+    serde_json::from_str(text).with_context(|| format!("`{text}` is not JSON"))
 }
