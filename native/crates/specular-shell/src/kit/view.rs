@@ -299,9 +299,9 @@ impl ShellView {
     }
 }
 
-impl Render for ShellView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
-        // What effects asked of the window is applied by this render.
+impl ShellView {
+    /// Applies what effects asked of the window since the last render.
+    fn apply_asks(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) {
         self.asks.changed.set(false);
         if let Some(wanted) = self.asks.field.take() {
             field::want(wanted, cx);
@@ -309,6 +309,12 @@ impl Render for ShellView {
         if let Some(command) = self.asks.shell.take() {
             window.defer(cx, move |_, cx| crate::menus::run_shell(command, cx));
         }
+    }
+}
+
+impl Render for ShellView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+        self.apply_asks(window, cx);
         named::begin_frame();
         let models = canvas::models();
         if let Some(models) = models.as_ref() {
