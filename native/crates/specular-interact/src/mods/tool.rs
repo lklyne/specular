@@ -2,11 +2,11 @@
 //! was armed, which `update` gathers and the mod reads as the `tool` state
 //! key.
 //!
-//! The script never runs inside `update`. The mod renders when the key moves,
-//! which is at most once a frame however many moves arrived, and it sees the
-//! whole stroke so far each time, so no point is lost to the coalescing. It
-//! answers with a preview (`tool.preview`), drawn a frame behind the
-//! pointer, and on release commits with `item.add`, one undo step.
+//! A tool with a `stroke` in its `mod.json` (API 1.6) is drawn by the app
+//! from these points every frame, as the built-in tools are: the mod's
+//! script waits for `up` and commits with `item.add`, one undo step. A tool
+//! without one draws its own preview (`tool.preview`), which follows the
+//! key, so it trails the pointer by the frames the script takes.
 
 use glam::DVec2;
 use serde::Serialize;
@@ -58,6 +58,7 @@ pub(crate) fn begin_stroke(app: &mut App, tool: String, at: DVec2) {
     let mods = &mut app.mods;
     let number = mods.stroke.as_ref().map_or(1, |stroke| stroke.number + 1);
     mods.preview.clear();
+    mods.trail = true;
     mods.stroke = Some(ModStroke {
         tool,
         number,
@@ -91,5 +92,15 @@ pub(crate) fn finish_stroke(app: &mut App) {
 /// and the preview goes.
 pub(crate) fn cancel_stroke(app: &mut App) {
     app.mods.stroke = None;
+    app.mods.trail = false;
     app.mods.preview.clear();
+}
+
+/// Whether the mod must see the stroke as it moves: a tool that draws its
+/// own preview, or a stroke that just ended, which the mod commits. A tool
+/// the app draws with its brush is told of the rest with the other keys.
+pub fn tool_is_live(app: &App) -> bool {
+    app.mods.stroke.as_ref().is_some_and(|stroke| {
+        stroke.phase == StrokePhase::Up || app.mods.brush(&stroke.tool).is_empty()
+    })
 }

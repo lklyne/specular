@@ -52,7 +52,7 @@ impl ModCatalog {
         self.tool(id).is_some_and(|(_, spec)| spec.is_shape())
     }
 
-    /// The tool a word such as `ink/pen` names.
+    /// The tool a word such as `watercolor/brush` names.
     pub fn tool_named(&self, word: &str) -> Option<ModToolId> {
         let (name, tool) = word.split_once('/')?;
         let (id, ..) = (self.tools())

@@ -5,7 +5,8 @@
 // overlays, the look and text fields (ADR 0059); 1.3 added a key for each
 // chat thread and the `thread` arguments of the `chat.*` commands; 1.4
 // added mod shapes (ADR 0060): `shapes` in `mod.json` and `shape.set`; 1.5 added
-// the `agents` key and `view.follow`.
+// the `agents` key and `view.follow`; 1.6 a tool's `stroke`, drawn by the
+// app, `tool.stroke`, and `taper` and `speed` on paths.
 
 /**
  * Every state key. `panels/*` are the app's own panel models as plain data;
@@ -176,6 +177,7 @@ export type StateKey =
  * - `shape.set` `{ids: [shape id], params?: object, path?: outline}`: Set keys of mod shapes' values and give them a new outline (SVG path data in a 0 to 100 box), one undo step; a null takes a key away (1.4).
  * - `item.draw` `{id: mod item id, draws: [{type: rect|ellipse|path|text|image, ..}]}`: Give a mod item the display list it shows, in item space. Not an undo step.
  * - `tool.preview` `{draws: [{type: rect|ellipse|path|text|image, ..}]}`: Show what the armed mod tool would make, in canvas units; an empty list clears it.
+ * - `tool.stroke` `{tool?: <mod>/<tool>, draws: [{type: path, stroke, line, taper?, speed?}]}`: Set how the app draws a mod tool's live stroke, for this run: paths with no points.
  * - `mods.install`: Install the mods this canvas uses and the app does not have, from the space folder.
  * - `share.copy-link`: Copy the active canvas's link, publishing it first when it is not shared.
  * - `share.access` `{scope: edit|comment|view|none}`: Choose who the active canvas's link lets in; none stops sharing it.
@@ -296,6 +298,7 @@ export type CommandName =
   | "item.set"
   | "item.draw"
   | "tool.preview"
+  | "tool.stroke"
   | "mods.install"
   | "share.copy-link"
   | "share.access"
@@ -403,11 +406,15 @@ export const Prism: HostComponent<{}>;
  * (`tool.preview`), in item space or canvas units. Colours are `#rrggbb` or
  * `#rrggbbaa`. An image's `src` is a file in the space folder or an
  * `http(s)` URL. The last list an item drew is saved in the .canvas file as
- * its snapshot, which shows where the mod is not installed.
+ * its snapshot, which shows where the mod is not installed. An open path
+ * with `taper` (narrows to a point at both ends) or `speed` (0 to 1: how
+ * much far-apart points, a fast pointer, thin it) is a brush stroke, filled
+ * in its `stroke` colour and `line` wide at its widest. A tool's `stroke` in
+ * mod.json is a list of paths with no points, drawn over the live stroke.
  */
 export type ModDraw =
   | { type: "rect"; x: number; y: number; width: number; height: number; fill?: string; stroke?: string; line?: number; radius?: number }
   | { type: "ellipse"; x: number; y: number; width: number; height: number; fill?: string; stroke?: string; line?: number }
-  | { type: "path"; points: Array<[number, number]>; closed?: boolean; fill?: string; stroke?: string; line?: number }
+  | { type: "path"; points: Array<[number, number]>; closed?: boolean; fill?: string; stroke?: string; line?: number; taper?: boolean; speed?: number }
   | { type: "text"; x: number; y: number; text: string; size?: number; color?: string; width?: number; align?: "left" | "center" | "right" }
   | { type: "image"; x: number; y: number; width: number; height: number; src: string; fit?: "contain" | "cover" | "fill"; radius?: number };

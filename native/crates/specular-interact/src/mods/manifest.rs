@@ -41,9 +41,10 @@ pub struct ApiVersion {
 /// | 1.3 | threads anywhere: the `chat/threads` and `chat/context` keys and a `chat/thread/<id>` key a thread, `chat.new-thread {id, open}`, `chat.send {thread}`, `chat.stop {thread}`, the `Composer` host component, the shared `mods/lib/chat.js`, and a page bridge `subscribe` to a thread's key |
 /// | 1.4 | mod shapes (ADR 0060): `shapes` in `mod.json`, `shape.set`, and a shape's `custom` in `canvas/items` |
 /// | 1.5 | agents on the canvas: the `agents` key and `view.follow {agent}` |
+/// | 1.6 | a tool's `stroke` in `mod.json`, drawn by the app over the live stroke; `tool.stroke`; `taper` and `speed` on display-list paths; the `tool` and `call` keys published as they change |
 pub const API: ApiVersion = ApiVersion {
     generation: 1,
-    revision: 5,
+    revision: 6,
 };
 
 impl ApiVersion {
@@ -155,6 +156,11 @@ pub struct ToolSpec {
     /// 1.2): `shape` lists it among the shape tool's shapes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// How the app draws the stroke while the tool is in hand (API 1.6):
+    /// display-list paths with no points, drawn in order over the live
+    /// stroke every frame, so the mod's script runs only on release.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stroke: Vec<specular_doc::ModDraw>,
 }
 
 impl ToolSpec {
@@ -285,6 +291,14 @@ impl ModManifest {
         for shape in &manifest.shapes {
             if let Err(problem) = shape.custom("") {
                 return Err(refuse(format!("shape `{}`: {problem}", shape.name)));
+            }
+        }
+        for tool in &manifest.tools {
+            if (tool.stroke.iter()).any(|draw| draw.along(&[]).is_none()) {
+                return Err(refuse(format!(
+                    "tool `{}`: a `stroke` holds only `path` entries",
+                    tool.name
+                )));
             }
         }
         Ok(manifest)

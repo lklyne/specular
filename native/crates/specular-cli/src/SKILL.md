@@ -24,11 +24,12 @@ and `specular mod clone` work without it.
 |---|---|---|
 | A panel drawn differently (toolbar, tab row, notices, menu) | a panel mod, placed by the layout | `toolbar`, `toast` |
 | A new kind of canvas item | `items` in `mod.json`, a display list from `item.draw` | `feed` |
-| A canvas item that is live web content | `items.web`, an HTML file in the mod | `watercolor` |
-| A tool in the toolbar | `tools` in `mod.json`, following the `tool` key | `ink` |
+| A canvas item that is live web content | `items.web`, an HTML file in the mod | none shipped |
+| A tool or brush in the toolbar | `tools` in `mod.json` with a `stroke`, committing on the `tool` key's `up` | `watercolor` |
 | A command in the palette, on a key or in the dock | `commands` in `mod.json`, acting on the `call` key | `feed` |
 
-One mod can be several of these. `ink` is a tool, an item kind and a command.
+One mod can be several of these. `watercolor` is a tool, an item kind and a
+command.
 
 ## Customize the window, items, tools or commands
 
@@ -44,7 +45,8 @@ the app rewrites them on start. `<app home>` is
 - `mod.json` says what the mod adds: `shapes`, `items`, `tools`,
   `commands`, `palette`. Write `"api": "1.5"`: 1.2 added overlays,
   `Field`, the look and the window's keys, 1.3 chat threads anywhere,
-  1.4 shapes and 1.5 the `agents` key, over 1.1's items, tools and commands.
+  1.4 shapes and 1.5 the `agents` key, over 1.1's items, tools and commands;
+  `"1.6"` for a tool's `stroke`.
   Unknown fields are refused, and the error says which.
 - A mod renders from state only. `state(key)` subscribes it to that key; it
   renders again when the key changes and at no other time. Never loop, poll
@@ -56,8 +58,11 @@ the app rewrites them on start. `<app home>` is
   script.
 - The `tool` and `call` keys carry a `number` that counts up. Act once per
   number, and skip the value you see on load, so a reload doesn't replay.
-- A tool previews with `tool.preview` while the drag is `down` and commits
-  with `item.add` on `up`.
+- Give a tool a `stroke` (paths with no points, `"api": "1.6"`): the app
+  draws it over the live stroke every frame, as fast as its own tools. The
+  script commits with `item.add` on `up` and draws the item with the same
+  paths. `taper` and `speed` on a path make it a brush. `tool.preview` is
+  for a tool whose preview isn't a stroke; it trails the pointer.
 - Keep an item's data in its props (`item.set`). Its last display list is
   saved in the `.canvas` file as its snapshot, so a person without the mod
   still sees it.

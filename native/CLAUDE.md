@@ -356,7 +356,9 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   `specular-scene/src/view/mod_item.rs`; the shell's side is
   `app/mods_run.rs`. Mods with items, tools or commands run out of sight
   (`ModSet::sync`'s `background`, `Mods::background`). The shipped
-  examples are `feed`, `ink` and `watercolor`.
+  examples are `feed` and `watercolor`. A tool's `stroke` (API 1.6) is
+  drawn by the scene from `App::mod_trail`, and `publish_live` sends the
+  `tool` and `call` keys each turn, outside the models gate.
 - **The whole window (ADR 0059, API 1.2).** The state keys
   `panels/sidebar`, `panels/chat`, `selection`, `canvas/items`,
   `canvas/info`, `layouts`, `look` and `overlays`
@@ -384,7 +386,7 @@ A mod (ADR 0055) is a folder of `mod.json` and `main.js`, run by
   the short `specular-mods` skill points agents to. The gates are
   `cargo test -p specular-mods --release --test toolbar` and `--test
   panels` (`-- --nocapture` for the numbers): median under 2 ms, none
-  over 8 ms, no render while idle or on a camera move, every id the
+  over 8 ms of thread CPU, no render while idle or on a camera move, every id the
   native model lists, a click reaching the host. A new panel's gate goes
   in `tests/panels/`, on `tests/support/`.
 

@@ -1,8 +1,8 @@
 //! The shipped canvas mods (ADR 0057) over a real app: `feed` draws its
 //! items from `canvas/mod_items` with `item.draw`, only when an item's props
-//! or size move; `ink` follows its tool's drag in the `tool` key, previews
-//! it and places the stroke on release. Each renders once a step and never
-//! while idle, fast enough for a frame.
+//! or size move; `watercolor`'s brush is drawn by the app, so its script
+//! sends nothing during a drag and places the stroke on release. Each
+//! renders once a step and never while idle, fast enough for a frame.
 
 #![expect(clippy::panic, reason = "a helper fails the test it is called from")]
 
@@ -38,7 +38,7 @@ fn installed(name: &str) -> InstalledMod {
 /// An app with the shipped canvas mods installed.
 fn app_with_mods() -> TestApp {
     let mut app = window_app();
-    let mods = ["feed", "ink", "watercolor"].map(installed).to_vec();
+    let mods = ["feed", "watercolor"].map(installed).to_vec();
     app.send(Event::ModCatalog(ModCatalog { mods }));
     app
 }
@@ -97,26 +97,31 @@ fn a_feed_draws_each_item_when_its_props_move(cx: &mut gpui::TestAppContext) {
 }
 
 #[gpui::test]
-fn the_ink_pen_previews_its_stroke_and_places_it_on_release(cx: &mut gpui::TestAppContext) {
+fn the_watercolor_brush_is_drawn_by_the_app_and_placed_on_release(cx: &mut gpui::TestAppContext) {
     let mut app = app_with_mods();
-    run(&mut app, "tool.set", &json!({ "tool": "ink/pen" }));
-    let mut loaded = timed_load(&app, "ink", json!({}), NONE, cx);
+    run(&mut app, "tool.set", &json!({ "tool": "watercolor/brush" }));
+    let mut loaded = timed_load(&app, "watercolor", json!({}), NONE, cx);
     app.press((100.0, 100.0));
-    assert!(loaded.step(&app), "the press is a `tool` change");
-    assert_renders_inside_a_frame(&mut loaded, &mut app, "ink", 200, |app, i| {
+    loaded.step(&app);
+    assert_renders_inside_a_frame(&mut loaded, &mut app, "watercolor", 200, |app, i| {
         let x = 100.0 + i as f32;
         app.drag_to((x, 100.0 + (x / 10.0).sin() * 20.0));
     });
+    assert!(
+        !app.app().mod_trail().is_empty(),
+        "the app draws the live stroke"
+    );
     app.release();
     assert!(loaded.step(&app), "the release is a `tool` change");
     let runs = loaded.runs();
-    assert!(
-        runs_of(&runs, "tool.preview").len() >= 200,
-        "a preview a move"
+    assert_eq!(
+        runs_of(&runs, "tool.preview"),
+        Vec::<&String>::new(),
+        "no preview from the script"
     );
     let placed = runs_of(&runs, "item.add");
     assert_eq!(placed.len(), 1, "{placed:?}");
-    assert!(placed[0].contains("\"mod\":\"ink\""), "{placed:?}");
+    assert!(placed[0].contains("\"mod\":\"watercolor\""), "{placed:?}");
     assert_eq!(loaded.idle_renders(), 0, "no script render while idle");
 }
 

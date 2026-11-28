@@ -235,7 +235,8 @@ pub use specular_agent::{
 };
 pub use specular_core::Cursor;
 pub use state::{
-    Revisions, STATE_KEYS, THREAD_KEY, is_state_key, publish as publish_state, state, state_key,
+    Revisions, STATE_KEYS, THREAD_KEY, is_state_key, publish as publish_state, publish_live, state,
+    state_key,
 };
 pub(crate) use theme::ThemeState;
 pub use theme::{Appearance, Theme};

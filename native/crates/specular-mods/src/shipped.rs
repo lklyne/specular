@@ -66,8 +66,7 @@ pub const MODS: &[Shipped] = &[
     shipped!("chat"),
     shipped!("status"),
     shipped!("feed"),
-    shipped!("ink"),
-    shipped!("watercolor", "item.html"),
+    shipped!("watercolor"),
     shipped!("star"),
     shipped!("thread", "item.html"),
 ];

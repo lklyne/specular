@@ -347,7 +347,7 @@ point. A working sample is `native/fixtures/bridge/space/widget.html`.
 
 To build a mod (a panel, a canvas item type, a tool, or commands for the
 palette, keys and dock), use the `specular-mods` skill or run `specular --skill`. To drive mods that
-exist: `specular run tool.set '{"tool": "ink/pen"}'` arms a mod tool,
+exist: `specular run tool.set '{"tool": "watercolor/brush"}'` arms a mod tool,
 `specular run item.add '{"kind": "mod", "mod": "feed", "props": {...}}'`
 places a mod item, `specular run item.set '{"id": "...", "props": {...}}'`
 changes one, and `specular run <mod>/<command>` runs a mod's own command.

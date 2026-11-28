@@ -1,9 +1,0 @@
-{
-  "api": "1.2",
-  "title": "Ink",
-  "tools": [{ "name": "pen", "title": "Ink pen", "icon": "pen-line" }],
-  "items": {},
-  "commands": [
-    { "name": "color", "title": "Next ink colour", "icon": "brush-pen", "key": "alt+shift+i", "dock": true }
-  ]
-}

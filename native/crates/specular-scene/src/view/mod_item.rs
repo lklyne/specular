@@ -13,7 +13,7 @@ use super::frame::{Frame, canvas_rect};
 use super::{file, image, page, palette};
 use crate::{
     Color, EllipseDraw, ImageId, Item, PathDraw, PathStroke, Point, PolygonDraw, Rect, RectDraw,
-    Scene, Stroke, StrokeAlign, TextAlign, TextRun,
+    Scene, Stroke, StrokeAlign, TextAlign, TextRun, brush_outline,
 };
 
 /// The size of a mod's text when it names none.
@@ -35,11 +35,13 @@ pub(crate) fn draw(frame: &Frame<'_>, entity: &Entity, item: &ModItem, scene: &m
     }
 }
 
-/// The armed mod tool's preview, in canvas units.
+/// The armed mod tool's live stroke, drawn with its brush, and the preview
+/// its mod sent, in canvas units.
 pub(crate) fn preview(frame: &Frame<'_>, scene: &mut Scene) {
     let origin = Point::new(0.0, 0.0);
-    let draws = frame.app.mod_preview();
-    scene.extend(draws.iter().filter_map(|draw| item_of(frame, origin, draw)));
+    let trail = frame.app.mod_trail();
+    let draws = trail.iter().chain(frame.app.mod_preview());
+    scene.extend(draws.filter_map(|draw| item_of(frame, origin, draw)));
 }
 
 #[expect(
@@ -102,7 +104,12 @@ fn item_of(frame: &Frame<'_>, origin: Point, draw: &ModDraw) -> Option<Item> {
             points,
             closed,
             paint,
+            taper,
+            speed,
         } => {
+            if !*closed && (*taper || *speed > 0.0) {
+                return brush(origin, points, paint, *taper, *speed);
+            }
             let outline =
                 color(paint.stroke.as_ref()).map(|outline| PathStroke::new(outline, width(paint)));
             let fill = color(paint.fill.as_ref());
@@ -160,4 +167,27 @@ fn item_of(frame: &Frame<'_>, origin: Point, draw: &ModDraw) -> Option<Item> {
             Some(Item::canvas(drawn).clipped(at(origin, *rect)))
         }
     }
+}
+
+/// An open path with `taper` or `speed`, filled as its brush outline in its
+/// `stroke` colour.
+#[expect(clippy::cast_possible_truncation, reason = "the scene is f32")]
+fn brush(
+    origin: Point,
+    points: &[[f64; 2]],
+    paint: &Paint,
+    taper: bool,
+    speed: f64,
+) -> Option<Item> {
+    let ink = color(paint.stroke.as_ref())?;
+    let outline = brush_outline(points, paint.line.unwrap_or(1.0), taper, speed);
+    (!outline.is_empty()).then(|| {
+        Item::canvas(PolygonDraw {
+            points: (outline.into_iter())
+                .map(|[x, y]| Point::new(origin.x + x as f32, origin.y + y as f32))
+                .collect(),
+            fill: Some(ink),
+            stroke: None,
+        })
+    })
 }

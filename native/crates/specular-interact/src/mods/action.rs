@@ -30,6 +30,14 @@ pub enum ModAction {
     },
     /// The armed mod tool's preview, in canvas units. Not an undo step.
     Preview(Vec<ModDraw>),
+    /// Set the brush the app draws a mod tool's live stroke with, for this
+    /// run. Not an undo step.
+    Stroke {
+        /// The tool, `<mod>/<tool>`; absent is the armed one.
+        tool: Option<String>,
+        /// Display-list paths with no points.
+        draws: Vec<ModDraw>,
+    },
     /// Install the mods the active canvas needs and the app lacks.
     Install,
     /// Run a mod's own command, `<mod>/<command>`: published as the `call`
@@ -66,7 +74,20 @@ pub(crate) fn run(app: &mut App, action: ModAction, effects: &mut Vec<Effect>) {
             }
             images::request_new(app, effects);
         }
-        ModAction::Preview(draws) => app.mods.preview = draws,
+        ModAction::Preview(draws) => {
+            app.mods.trail = false;
+            app.mods.preview = draws;
+        }
+        ModAction::Stroke { tool, draws } => {
+            let armed = || match app.session.tool {
+                Tool::Mod(id) => app.mods.catalog.tool_word(id),
+                _ => None,
+            };
+            if let Some(word) = tool.or_else(armed) {
+                let draws = draws.iter().filter_map(|draw| draw.along(&[])).collect();
+                app.mods.brushes.insert(word, draws);
+            }
+        }
         ModAction::Install => super::install_missing(app, effects),
         ModAction::Call { command, args } => super::commands::call(app, command, args),
     }

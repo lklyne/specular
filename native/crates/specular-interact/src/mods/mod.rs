@@ -48,5 +48,5 @@ pub(crate) use self::pane::mods_pane;
 pub use self::shape::ShapeChange;
 pub(crate) use self::shape::set_shapes;
 pub(crate) use self::state::{mod_items_json, tool_json};
-pub use self::tool::{ModStroke, ModToolId, StrokePhase};
+pub use self::tool::{ModStroke, ModToolId, StrokePhase, tool_is_live};
 pub(crate) use self::tool::{begin_stroke, cancel_stroke, drag_stroke, finish_stroke};

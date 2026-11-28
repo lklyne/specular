@@ -14,6 +14,7 @@
 //! (ADR 0039).
 
 mod bounds;
+mod brush;
 mod cache;
 mod color;
 mod colors;
@@ -35,6 +36,7 @@ mod view;
 /// and reads nothing from it.
 pub type OwnerId = specular_doc::EntityId;
 
+pub use brush::brush_outline;
 pub use cache::ViewCache;
 pub use color::Color;
 pub use colors::{Colors, Hues, PanelColors, Shade};
