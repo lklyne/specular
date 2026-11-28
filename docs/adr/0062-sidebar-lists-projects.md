@@ -1,6 +1,6 @@
 # 0062: The sidebar lists projects, and a repo is a project
 
-**Status:** Proposed, for Lyle to decide. Nothing is built.
+**Status:** Accepted (option A), 2026-11-28, by Lyle. Not built yet.
 **Date:** 2026-11-28
 **Related:** [ADR 0033](./0033-user-chosen-space-folder.md) (one space per window, the folder is the space), [ADR 0043](./0043-per-canvas-state-in-a-space.md) (each canvas keeps its state in a Space), [ADR 0059](./0059-the-whole-window-from-mods.md) (the sidebar is a mod).
 **Code today:** `specular-interact/src/space*`, `specular-interact/src/sidebar*`, `specular-interact/src/state/panels.rs` (`panels/sidebar`), `specular-mods/mods/sidebar/main.js`, `specular-agent/src/repos.rs`, `specular-shell/src/app/repos_run.rs`, `specular-shell/src/kit/settings_repos.rs`.
