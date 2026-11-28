@@ -462,6 +462,11 @@ Elements a mod places but cannot draw itself, imported from `specular`:
 - `Pattern`, `Pattern.new(id, { paint, width, height })`: a box filling
   its parent, painted with a paint (see "Patterns"): pinstripes, hatching,
   checks. Put it first in a `relative()` box and the content after it.
+- `Popover`, `Popover.new(id, { top, left, right, bottom }).child(...)`: a
+  box over the rest of the window, out of the flow at those offsets from its
+  `relative()` box. A press on it is its children's alone, so a dropdown
+  that hangs over the canvas does not also press the canvas (and drop the
+  selection). Put a mod's dropdowns and menus in one.
 - `Field`, `Field.new(id, { id, placeholder, value, autofocus })` or
   `Field.new(id, { control })`: a line of text (see "Text"), restyled by
   `radius`, `background`, `border` and `focusRing`.

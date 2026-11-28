@@ -374,6 +374,8 @@ export type Paint =
 export const Pattern: HostComponent<{ paint: Paint; width?: number; height?: number }>;
 /** `Favicon`: a tab's glyph: the page's own icon once the window has it, else the panel glyph `icon` (`tabs[].icon`) as `Icon` draws it. `tab` is the tab's id. */
 export const Favicon: HostComponent<{ tab: string; icon: any; size?: number; color?: string; control?: string }>;
+/** `Popover`: a box over the rest of the window around its children, placed out of the flow at `top`/`left`/`right`/`bottom` from the `relative()` box it is in. A press on it is its children's alone: the canvas under a dropdown that hangs below its bar never sees it. Put a mod's own dropdowns and menus in one. */
+export const Popover: HostComponent<{ top?: number; left?: number; right?: number; bottom?: number }>;
 /** `WindowDrag`: bare title bar. A press that moves drags the window, and a double click does what the system says a title bar's does. It fills the box it is put in. */
 export const WindowDrag: HostComponent<{}>;
 /** `Share`: what the layout puts in the Share slot: the `share` mod when the layout names one, else the app's own Share button and popover. */
